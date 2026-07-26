@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YYC CAD Export — Revit to AutoCAD, Step by Step</title>
+<style>
+  :root{
+    --amber:#f59e0b; --amber-dk:#b45309; --amber-lt:#fff8ec; --amber-br:#fde3b0;
+    --ink:#1c1917; --ink-2:#44403c; --ink-3:#78716c;
+    --paper:#ffffff; --shell:#faf9f7; --line:#e7e5e4;
+    --slate:#475569; --slate-lt:#f1f5f9; --slate-br:#cbd5e1;
+    --red:#b91c1c; --red-lt:#fef2f2; --red-br:#fecaca;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--shell); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px;display:grid;grid-template-columns:236px 1fr;gap:44px}
+  header.top{grid-column:1/-1;padding:52px 0 34px;border-bottom:3px solid var(--amber)}
+  .eyebrow{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber-dk);font-weight:700}
+  h1{margin:.34em 0 .3em;font-size:40px;line-height:1.1;letter-spacing:-.022em;font-weight:750}
+  .sub{font-size:17.5px;color:var(--ink-2);max-width:66ch;margin:0}
+  .meta{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-size:12px;background:var(--amber-lt);border:1px solid var(--amber-br);color:var(--amber-dk);
+        padding:5px 11px;border-radius:999px;font-weight:600}
+  nav{position:sticky;top:24px;align-self:start;padding-top:38px;font-size:13.5px}
+  nav .nt{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:12px}
+  nav a{display:block;padding:6px 0 6px 13px;color:var(--ink-2);text-decoration:none;
+        border-left:2px solid var(--line);line-height:1.4}
+  nav a:hover{color:var(--amber-dk);border-left-color:var(--amber);background:var(--amber-lt)}
+  nav a b{color:var(--ink-3);font-weight:600;font-variant-numeric:tabular-nums;margin-right:7px}
+  nav a:hover b{color:var(--amber-dk)}
+  main{padding-top:38px;min-width:0}
+  .step{background:var(--paper);border:1px solid var(--line);border-radius:12px;
+        padding:28px 32px 26px;margin:0 0 22px;scroll-margin-top:24px}
+  .step > .hd{display:flex;gap:16px;align-items:baseline;margin-bottom:6px}
+  .num{flex:0 0 auto;width:34px;height:34px;border-radius:9px;background:var(--amber);color:#fff;
+       display:grid;place-items:center;font-weight:750;font-size:15px;font-variant-numeric:tabular-nums;
+       box-shadow:0 1px 0 rgba(0,0,0,.06)}
+  .step h2{margin:0;font-size:22.5px;letter-spacing:-.014em;line-height:1.25;font-weight:700;padding-top:3px}
+  .step .body{padding-left:50px}
+  .step p{margin:.7em 0}
+  .step ul,.step ol{margin:.7em 0;padding-left:22px}
+  .step li{margin:.34em 0}
+  h3{font-size:15px;margin:1.7em 0 .5em;letter-spacing:.01em;font-weight:700;color:var(--ink)}
+  h3:first-child{margin-top:.4em}
+  .phase{margin:36px 0 18px;padding-left:2px;display:flex;align-items:center;gap:14px}
+  .phase span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber-dk);font-weight:750;white-space:nowrap}
+  .phase i{flex:1;height:1px;background:var(--amber-br)}
+  .phase:first-child{margin-top:0}
+  code{font-family:var(--mono);font-size:13px;background:#f5f5f4;border:1px solid var(--line);
+       padding:1.5px 6px;border-radius:5px;color:var(--ink);white-space:nowrap}
+  .cmd{font-family:var(--mono);font-size:12.5px;font-weight:700;background:#292524;color:#fbbf24;
+       padding:2.5px 9px;border-radius:5px;border:none;letter-spacing:.02em;white-space:nowrap}
+  pre{font-family:var(--mono);font-size:12.5px;line-height:1.6;background:#292524;color:#e7e5e4;
+      padding:15px 17px;border-radius:9px;overflow-x:auto;margin:1em 0}
+  pre .c{color:#a8a29e;font-style:italic}
+  pre .k{color:#fbbf24;font-weight:700}
+  .box{border-radius:9px;padding:14px 17px;margin:1.05em 0;font-size:14.6px;line-height:1.6}
+  .box .lb{display:block;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:750;margin-bottom:5px}
+  .box p{margin:.45em 0}
+  .box p:first-of-type{margin-top:0}
+  .box p:last-child{margin-bottom:0}
+  .tip{background:var(--amber-lt);border:1px solid var(--amber-br);border-left:3px solid var(--amber)}
+  .tip .lb{color:var(--amber-dk)}
+  .std{background:var(--slate-lt);border:1px solid var(--slate-br);border-left:3px solid var(--slate)}
+  .std .lb{color:var(--slate)}
+  .warn{background:var(--red-lt);border:1px solid var(--red-br);border-left:3px solid var(--red)}
+  .warn .lb{color:var(--red)}
+  table{width:100%;border-collapse:collapse;margin:1.1em 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);font-weight:700;
+     border-bottom:1.5px solid var(--ink-3);white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  .check{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:26px 32px;margin-bottom:22px}
+  .check h2{margin:0 0 4px;font-size:22.5px;letter-spacing:-.014em;font-weight:700}
+  .check .cap{color:var(--ink-2);font-size:15px;margin:0 0 18px}
+  .check ul{list-style:none;padding:0;margin:0}
+  .check li{padding:9px 0 9px 32px;border-bottom:1px dashed var(--line);position:relative;font-size:14.8px}
+  .check li:last-child{border-bottom:none}
+  .check li::before{content:"";position:absolute;left:2px;top:13px;width:14px;height:14px;
+                    border:1.5px solid var(--amber);border-radius:3.5px;background:#fff}
+  .check li b{font-weight:650}
+  footer{grid-column:1/-1;margin-top:34px;padding-top:20px;border-top:1px solid var(--line);
+         font-size:13px;color:var(--ink-3);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .rule{color:var(--amber-dk);font-weight:600}
+  @media(max-width:900px){
+    .wrap{grid-template-columns:1fr;gap:0}
+    nav{display:none}
+    .step{padding:22px 20px}
+    .step .body{padding-left:0}
+    h1{font-size:31px}
+  }
+  @media print{
+    body{background:#fff}
+    nav{display:none}
+    .wrap{grid-template-columns:1fr;max-width:none}
+    .step,.check{break-inside:avoid;border-color:#ccc}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">DIALOG · Design Technology</div>
+  <h1>YYC CAD Export</h1>
+  <p class="sub">Getting a Revit sheet out to a Calgary Airport Authority–compliant AutoCAD drawing. Ten moves, in order, with the reasons behind them — because half of these steps look optional right up until the moment they aren't.</p>
+  <div class="meta">
+    <span class="chip">Reference project · 24C024 Centralized Passenger Screening</span>
+    <span class="chip">Sheet size A0</span>
+    <span class="chip">Units mm</span>
+    <span class="chip">Deliver as AutoCAD 2018 .dwg</span>
+  </div>
+</header>
+
+<nav>
+  <div class="nt">Contents</div>
+  <a href="#prep"><b>0</b>Before you start</a>
+  <a href="#s1"><b>1</b>Export from Revit</a>
+  <a href="#s2"><b>2</b>Name the files</a>
+  <a href="#s3"><b>3</b>Resize the sheet</a>
+  <a href="#s4"><b>4</b>Schedules to paper space</a>
+  <a href="#s5"><b>5</b>Land it on the YYC grid</a>
+  <a href="#s6"><b>6</b>Remove the grid, purge</a>
+  <a href="#s7"><b>7</b>Viewport &amp; rotation</a>
+  <a href="#s8"><b>8</b>Layers — the long part</a>
+  <a href="#s9"><b>9</b>Final QA sweep</a>
+  <a href="#s10"><b>10</b>File description &amp; transmittal</a>
+  <a href="#cheat"><b>—</b>Command cheat sheet</a>
+</nav>
+
+<main>
+
+<div class="phase"><span>Phase 0 · Setup</span><i></i></div>
+
+<section class="step" id="prep">
+  <div class="hd"><div class="num">0</div><h2>Before you start</h2></div>
+  <div class="body">
+    <p>Have these open or on your machine first. Chasing a missing reference file halfway through is how drawings get half-finished and forgotten.</p>
+    <table>
+      <thead><tr><th>File</th><th>What it's for</th></tr></thead>
+      <tbody>
+        <tr><td><code>YYC Titleblock - Revit Export_A0.dwt</code></td><td>Page setup + A0 sheet. Import once — it saves to your machine.</td></tr>
+        <tr><td><code>04grid-dtb.dwg</code></td><td>The YYC grid. Your position reference for every drawing.</td></tr>
+        <tr><td><code>YYC_Layer Reference.dwg</code></td><td>Translate-to target for <span class="cmd">LAYTRANS</span>.</td></tr>
+        <tr><td><code>YYC STD Layers.dws</code></td><td>The standards file itself.</td></tr>
+        <tr><td><code>Layer_Comparison_YYC.xlsx</code></td><td>Paste your layer list in, see what's off-standard.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="box std">
+      <span class="lb">Three rules that govern everything below</span>
+      <p><b>1. Never rotate or move the geometry to make a view look right.</b> The CADD Manual says it in capitals. Rotate the <em>view</em>, via UCS. The geometry stays where the coordinates put it.</p>
+      <p><b>2. Colour and linetype BY LAYER, never by entity.</b> YYC plots through a colour-dependent CTB — the colour <em>is</em> the pen weight. Set anything by object and the drawing plots wrong on their end.</p>
+      <p><b>3. Nothing lives on layer <code>0</code> or <code>DEFPOINTS</code></b> except geometry inside a block definition.</p>
+    </div>
+  </div>
+</section>
+
+<div class="phase"><span>Phase 1 · Out of Revit</span><i></i></div>
+
+<section class="step" id="s1">
+  <div class="hd"><div class="num">1</div><h2>Export the CAD files from Revit</h2></div>
+  <div class="body">
+    <p>Batch or individual, your call. Use the YYC CAD template and the correct Export Setup. Either name each file properly as you export it, or export them all and batch-rename at the end — but pick one, don't half-do both.</p>
+
+    <div class="box tip">
+      <span class="lb">Shadi's note — open question</span>
+      <p>Untested idea: set the real-world geodesic coordinates in Revit from <b>Location</b>, and see whether the export then lands that far out from <code>0,0</code> in AutoCAD. Worth trying when there's time.</p>
+      <p>As it stands today: <b>export, move, align, rotate.</b> Steps 5 and 7.</p>
+    </div>
+  </div>
+</section>
+
+<section class="step" id="s2">
+  <div class="hd"><div class="num">2</div><h2>Name the files — before you touch anything else</h2></div>
+  <div class="body">
+    <p>Format is the <b>YYC drawing number + sheet number</b>, with every period and dash stripped out.</p>
+    <pre><span class="c">-- YYC drawing number for this project: 24C024</span>
+A102        <span class="k">--&gt;</span>  24C024A102.dwg
+A-201       <span class="k">--&gt;</span>  24C024A201.dwg
+AD.201      <span class="k">--&gt;</span>  24C024AD201.dwg   <span class="c">demolition</span>
+M-201.01    <span class="k">--&gt;</span>  24C024M20101.dwg  <span class="c">mech, no separators</span></pre>
+
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>Do this <b>before</b> you start on layers. Once you're deep in layer translation you will not want to be renaming files and re-pathing xrefs, and renaming a file you've already cleaned is how you end up doing a sheet twice.</p>
+    </div>
+    <div class="box std">
+      <span class="lb">Why it's strict</span>
+      <p>The drawing number is what makes each file unique sheet-to-sheet <em>and</em> project-to-project in the Airport Authority's archive. It's assigned by their PM at project start — for 24C024 it's already set. The filename you deliver is the filename they file forever.</p>
+    </div>
+  </div>
+</section>
+
+<div class="phase"><span>Phase 2 · Sheet setup</span><i></i></div>
+
+<section class="step" id="s3">
+  <div class="hd"><div class="num">3</div><h2>Resize the sheet in Page Setup</h2></div>
+  <div class="body">
+    <p>Open the exported DWG. To be clear about what this step is: <b>you are not swapping the titleblock.</b> The titleblock that came out of Revit is correct. What's wrong is the sheet size — Revit doesn't export exactly to A0, so the page setup is off.</p>
+    <p>Fix it by importing the page setup from <code>YYC Titleblock - Revit Export_A0</code> through <b>Page Setup Manager</b>. Applying it sets the sheet to a true A0.</p>
+
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>You only need to import it once — after that it's saved on your machine and available in every drawing. If you can't find it in the list, you haven't imported it yet on this workstation. It isn't project-based.</p>
+    </div>
+    <div class="box std">
+      <span class="lb">While you're in there</span>
+      <p>Sheet borders and titleblock belong in <b>paper space</b>. The plan, notes, dimensions and symbols belong in <b>model space</b>. The layout origin sits at the lower-left <code>0,0,0</code> of the sheet border, and layouts always plot at 1:1.</p>
+    </div>
+  </div>
+</section>
+
+<section class="step" id="s4">
+  <div class="hd"><div class="num">4</div><h2>Move schedules to paper space with CHSPACE</h2></div>
+  <div class="body">
+    <p>Revit dumps schedules and sheet-level annotation into model space. They need to be in paper space. Do not skip this one.</p>
+    <pre><span class="c">-- from inside the layout, with the viewport active</span>
+Command: <span class="k">CHSPACE</span>        <span class="c">alias: CHSP</span>
+Select objects:          <span class="c">pick the schedules / sheet annotation</span>
+<span class="c">-- AutoCAD scales them automatically for the new space</span></pre>
+    <p>When it's done, model space holds the drawing and paper space holds the sheet furniture. That separation is what makes the rest of the workflow behave.</p>
+
+    <div class="box warn">
+      <span class="lb">Don't copy-paste</span>
+      <p>Copy-pasting between spaces doesn't rescale, so your schedule text ends up wildly wrong — and it silently breaks the association. <span class="cmd">CHSPACE</span> handles the scale factor for you. Use the command.</p>
+    </div>
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>Very important, easy to skip, painful to fix later. Get it done while the drawing is still simple.</p>
+    </div>
+  </div>
+</section>
+
+<div class="phase"><span>Phase 3 · Position</span><i></i></div>
+
+<section class="step" id="s5">
+  <div class="hd"><div class="num">5</div><h2>Land the drawing on the YYC grid</h2></div>
+  <div class="body">
+    <p>Your export sits near Revit's internal origin. The YYC grid sits out at the Local Airport Coordinate System — roughly <code>N 18,415,271</code> / <code>E 16,173,697</code> in millimetres. Which is why, as you'll see, your plan starts out miles from the grid.</p>
+
+    <h3>Bring the grid in</h3>
+    <pre>Open <span class="k">04grid-dtb.dwg</span>
+Command: <span class="k">COPYBASE</span>      <span class="c">or Ctrl+Shift+C</span>
+Base point: <span class="k">0,0,0</span>       <span class="c">type it, don't pick it</span>
+Select objects: <span class="c">the grid</span>
+
+<span class="c">-- back in your export drawing</span>
+<span class="k">Ctrl+Shift+V</span>            <span class="c">PASTEBLOCK - comes in as one block</span>
+Insertion point: <span class="k">0,0,0</span></pre>
+    <p>XREF works just as well if you'd rather. Either way the grid lands at its true coordinates, which gives you something real to align to.</p>
+
+    <h3>Then move, then align</h3>
+    <ol>
+      <li>Rough-move your drawing into the neighbourhood of the grid — it starts far away, so get it close first.</li>
+      <li>Run <span class="cmd">ALIGN</span> and use two matching points to seat it exactly.</li>
+    </ol>
+    <pre>Command: <span class="k">ALIGN</span>
+Select objects:                 <span class="c">your plan</span>
+First source point:             <span class="c">a grid intersection on your plan</span>
+First destination point:        <span class="c">same intersection on the YYC grid</span>
+Second source point:            <span class="c">a second, distant intersection</span>
+Second destination point:       <span class="c">its match</span>
+Third source point:             <span class="c">&lt;Enter&gt; to skip</span>
+Scale objects to alignment points? [Yes/No] &lt;N&gt;: <span class="k">N</span></pre>
+
+    <div class="box warn">
+      <span class="lb">Answer No to the scale prompt</span>
+      <p>Say Yes and AutoCAD will resize your entire plan to force the two points to match — quietly, and by a fraction you won't notice until someone dimensions off it. Always <code>N</code>.</p>
+      <p>Pick your two alignment points <b>far apart</b>. Two points close together will look aligned locally and be visibly out at the other end of the building.</p>
+    </div>
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>Pasting as a block rather than raw geometry is deliberate — it stays one selectable object, so in the next step you delete it in one click instead of hunting stray grid lines through your drawing.</p>
+    </div>
+  </div>
+</section>
+
+<section class="step" id="s6">
+  <div class="hd"><div class="num">6</div><h2>Delete the grid, purge, audit</h2></div>
+  <div class="body">
+    <p>The grid block was scaffolding. Once you're aligned, it goes.</p>
+    <pre>Delete the pasted grid block   <span class="c">one click, because you pasted it as a block</span>
+Command: <span class="k">PURGE</span>            <span class="c">tick "Purge nested items", run it twice</span>
+Command: <span class="k">AUDIT</span>            <span class="c">Fix any errors detected? Y</span></pre>
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>Purge and audit here, mid-workflow, not only at the end. The grid file drags in its own layers, blocks and linetypes, and clearing them now means they don't pollute your layer list when you get to <span class="cmd">LAYTRANS</span> — where a clean list is the whole game.</p>
+    </div>
+  </div>
+</section>
+
+<section class="step" id="s7">
+  <div class="hd"><div class="num">7</div><h2>Set up the viewport and the rotation</h2></div>
+  <div class="body">
+    <p>Here's the problem this step solves. Your plan is now correctly positioned but sitting at roughly 45° — because YYC's building drawings run parallel to the <em>segmented radial</em> grids, not to true north. So the viewport shows the plan skewed and in the wrong spot.</p>
+    <p>The target: <b>the sheet reads project north; model space stays true north.</b></p>
+    <ol>
+      <li>Unlock the viewport.</li>
+      <li>Pan the view to the right part of the building.</li>
+      <li>Set the viewport scale.</li>
+      <li>Rotate the <b>UCS</b>, not the drawing, so the plan sits square on the sheet.</li>
+      <li>Set the viewport scale again — confirm it didn't drift.</li>
+      <li><b>Lock the viewport.</b></li>
+    </ol>
+    <h3>Rotating the view properly</h3>
+    <pre><span class="c">-- double-click inside the viewport to activate it</span>
+Command: <span class="k">UCS</span>
+  <span class="c">option OB and pick a line along the radial grid, or</span>
+  <span class="c">option Z and type the rotation angle</span>
+Command: <span class="k">PLAN</span>
+  &lt;Current UCS&gt;: <span class="k">C</span>       <span class="c">regenerates plan view to the rotated UCS</span></pre>
+
+    <div class="box warn">
+      <span class="lb">The geometry does not move</span>
+      <p><em>"DO NOT ROTATE OR MOVE THE ELEMENTS THEMSELVES."</em> — CADD Manual §2.4, their capitals. Rotating geometry destroys the coordinate relationship to every other drawing on the site. The UCS is the only correct tool here.</p>
+    </div>
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>I keep viewports from previous projects and copy them across — it's the fastest route when the rotation matches. But each area has its own angle off north, so a new area like NPSC needs building from scratch. Do it once, carefully, then copy that viewport into every other sheet in the set.</p>
+    </div>
+    <div class="box std">
+      <span class="lb">Two things YYC checks</span>
+      <p>Viewports go on a layer named <code>VIEWPORT1</code>, <code>VIEWPORT2</code>, <code>VIEWPORT3</code>… set to <b>do not plot</b>.</p>
+      <p>On delivery, the main layout must be the active tab and <b>every viewport locked and set to the correct scale</b>. An unlocked viewport is a failed deliverable — and it's the easiest thing in this document to forget.</p>
+    </div>
+  </div>
+</section>
+
+<div class="phase"><span>Phase 4 · Layers</span><i></i></div>
+
+<section class="step" id="s8">
+  <div class="hd"><div class="num">8</div><h2>Fix the layers</h2></div>
+  <div class="body">
+    <p>The longest phase, and where compliance is actually won or lost. There are two separate problems, and they need different tools.</p>
+    <p><b>Problem one:</b> the YYC standard has more and different categories than Revit maps to. <b>Problem two:</b> individual objects land on the wrong layer even when the layer mapping was right — a habit of MEP families in particular.</p>
+
+    <h3>8a · Layer Translator — <span class="cmd">LAYTRANS</span></h3>
+    <p>The Layer Translator remaps layer names <em>and</em> layer properties in one pass, then converts everything sitting on them. <b>Manage</b> tab → <b>CAD Standards</b> panel → <b>Layer Translator</b>, or just type <span class="cmd">LAYTRANS</span>.</p>
+    <table>
+      <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><b>Translate From</b></td><td>Layers currently in your drawing. Dark icon = in use, white icon = empty. Right-click → <b>Purge Layers</b> clears the empty ones on the spot.</td></tr>
+        <tr><td><b>Load</b></td><td>Loads the target list. Point it at <code>YYC_Layer Reference.dwg</code> or <code>YYC STD Layers.dws</code>. You can load more than one file.</td></tr>
+        <tr><td><b>Selection Filter</b></td><td>Wildcard select — <code>A-ANNO*</code> grabs every annotation layer at once. This is how you work in batches.</td></tr>
+        <tr><td><b>Map</b> / <b>Map Same</b></td><td><b>Map</b> sends selected layers to the highlighted target. <b>Map Same</b> auto-matches every layer whose name is already identical on both sides — always click this first.</td></tr>
+        <tr><td><b>Edit</b></td><td>Adjust colour, linetype, lineweight, transparency or plot style on a mapping before running it.</td></tr>
+        <tr><td><b>Save</b></td><td>Writes your mappings out as a DWG or DWS. This is the reusable asset.</td></tr>
+        <tr><td><b>Settings</b></td><td>Tick <b>Force object colour to BYLAYER</b>, <b>Force object linetype to BYLAYER</b>, <b>Translate objects in blocks</b>, <b>Write transaction log</b>.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="box tip">
+      <span class="lb">Shadi's note — one pass per job, not one big pass</span>
+      <p>It's tempting to map everything and hit Translate once. Don't. Mappings overlap, and layers get missed in ways you won't spot until QA.</p>
+      <p>Give each translate a single job. One pass for the titleblock lines. One for construction lines. One for grid linetypes. One for layer colours. One for the heavy and thin lines the titleblock exported as separate layers that need merging into one. Run it, check it, then start the next.</p>
+      <p>And save the mapping every time. A floor plan mapping and an RCP mapping are different animals — build the library once and the second sheet of each type takes minutes.</p>
+    </div>
+    <div class="box std">
+      <span class="lb">Turn the Settings checkboxes on</span>
+      <p><b>Force object colour / linetype to BYLAYER</b> isn't cosmetic. YYC explicitly requires colour and linetype set by layer and not by entity, so files can be referenced and re-plotted correctly. Those two checkboxes do that enforcement for free while you're already translating.</p>
+      <p><b>Translate objects in blocks</b> matters too — otherwise geometry nested inside blocks keeps its old layers and quietly fails the check.</p>
+    </div>
+    <div class="box warn">
+      <span class="lb">Set lineweights back to Default</span>
+      <p>Revit stamps explicit lineweights on export — we found <code>LineWeight009</code>, <code>025</code> and <code>030</code> on 18 of 21 layers in the sample. The YYC standard is <b>ByLineWeightDefault</b> on essentially every layer, because thickness comes from the colour through the CTB.</p>
+      <p>Best fixed once in the Revit export setup rather than per sheet forever. Until then, correct it in the <b>Edit</b> dialog as you map.</p>
+    </div>
+
+    <h3>8b · Check against the comparison spreadsheet</h3>
+    <p>Open the <b>Layer Properties Manager</b>, click in the layer list, <b>select all</b>, and <code>Ctrl+C</code> — no export needed. Paste into the <code>PasteExport</code> tab of the comparison workbook and it flags what isn't in the YYC standard or is on the wrong properties.</p>
+    <div class="box tip">
+      <span class="lb">Shadi's note — modifiers</span>
+      <p>Layers carrying a status modifier sometimes don't get picked up. <code>A-DOOR-DEMO</code> is <code>A-DOOR</code> plus the <code>DEMO</code> modifier — legitimate, just not in the base list. Add them once and you're fine from then on.</p>
+      <p>Valid modifiers: <code>DEMO</code> · <code>EXST</code> · <code>FUTR</code> · <code>MOVE</code> · <code>NEWW</code> · <code>NICN</code> · <code>NPLT</code> · <code>PRPS</code> · <code>RELO</code> · <code>TEMP</code></p>
+    </div>
+
+    <h3>8c · Walk the layers — <span class="cmd">LAYWALK</span></h3>
+    <p>Correct layer <em>names</em> don't mean correct layer <em>contents</em>. MEP is the usual culprit: the family itself exports to the right layer, but its annotation symbol lands on a generic annotation layer. No spreadsheet catches that. You have to look.</p>
+    <pre>Command: <span class="k">LAYWALK</span>
+<span class="c">-- isolates one layer at a time so you can see what's actually on it</span>
+<span class="c">-- tick "Restore on exit" before you close the dialog</span>
+
+<span class="c">also useful:</span>
+<span class="k">LAYISO</span>     <span class="c">isolate the layer of a selected object</span>
+<span class="k">LAYUNISO</span>   <span class="c">undo that</span>
+<span class="k">LAYMRG</span>     <span class="c">merge one layer into another and delete the source</span>
+<span class="k">LAYDEL</span>     <span class="c">delete a layer and everything on it</span>
+<span class="k">SETBYLAYER</span> <span class="c">force colour/linetype/lineweight back to BYLAYER</span></pre>
+    <div class="box warn">
+      <span class="lb">Run SETBYLAYER before you walk</span>
+      <p>Known AutoCAD behaviour: <span class="cmd">LAYWALK</span> can fail to display objects whose colour is set by entity rather than by layer — so you'll walk a layer, see nothing, and conclude it's empty when it isn't. <code>Ctrl+A</code> then <span class="cmd">SETBYLAYER</span> first. It fixes the display problem and satisfies the YYC by-layer requirement in the same stroke.</p>
+    </div>
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>This is slow and there's no shortcut — you're scanning every layer to confirm what's on it. Budget the time honestly rather than rushing it, because this is exactly the class of error that comes back from YYC as a rejected submission.</p>
+    </div>
+  </div>
+</section>
+
+<div class="phase"><span>Phase 5 · Close out</span><i></i></div>
+
+<div class="check" id="s9">
+  <h2>9 · Final QA sweep</h2>
+  <p class="cap">Straight from CADD Manual §5.15. This is what they check on receipt — walk it on every sheet.</p>
+  <ul>
+    <li><b>Purged</b> of all unused definitions — layers, text styles, dimension styles, layer filters, blocks. Blank layers are not permitted in a delivery.</li>
+    <li><b>No empty definitions</b> — no empty text objects, no blocks without geometry.</li>
+    <li><b>Nothing on <code>0</code> or <code>DEFPOINTS</code></b>, except inside block definitions.</li>
+    <li><b>AUDIT comes back clean.</b> No detectable errors.</li>
+    <li><b>Colour and linetype BY LAYER</b> throughout — <span class="cmd">SETBYLAYER</span> if in doubt.</li>
+    <li><b>Lineweights at Default</b>, letting the CTB drive thickness.</li>
+    <li><b>Dimensions fully associative.</b> Manually overridden or non-associative dimension text is explicitly not acceptable. Worth a spot-check on Revit-exported dims.</li>
+    <li><b>Linetypes are real linetypes</b> from <code>CAA.LIN</code> — not dashes drawn as individual line segments. Circles are circles, not polyline approximations.</li>
+    <li><b>Viewports</b> on the <code>VIEWPORT#</code> layer, set to no-plot, <b>locked</b>, at correct scale.</li>
+    <li><b>Main layout active</b>, and the file prints with no additional page setup required.</li>
+    <li><b>ZOOM Extents</b> — nothing stranded off-sheet.</li>
+    <li><b>One eTransmit zip per discipline</b>, named to the project pattern, with the File Description PDF alongside.</li>
+  </ul>
+</div>
+
+<section class="step" id="s10">
+  <div class="hd"><div class="num">10</div><h2>File description and transmittal</h2></div>
+  <div class="body">
+    <h3>First, collect the lists from every consultant</h3>
+    <p>You can't write the File Description from your own folder. Go to each consultant — electrical, mechanical, structural — and get their <b>drawing list and exact file names</b>. Names must match the DWGs they actually send, character for character, because the File Description is the index YYC files the package against.</p>
+    <div class="box tip">
+      <span class="lb">Shadi's note</span>
+      <p>Ask for this early, not at the end. Chasing four consultants for filenames while a submission deadline runs down is the worst part of this whole process, and it's entirely avoidable. Request the list as soon as the issue date is set.</p>
+    </div>
+
+    <h3>The File Description</h3>
+    <p>Every delivery carries a File Description — an 8½ × 11 PDF listing each drawing and what it is, covering <b>all disciplines in one document</b>. Use <code>24C024_File Description Phase 01 2025.docx</code> as the pattern.</p>
+    <pre><span class="c">-- header block</span>
+2026/02/20 - CALGARY AIRPORT AUTHORITY ELECTRONIC DATA - FILE DESCRIPTION
+Prepared for:     Calgary Airport Authority
+Prepared by:      Dialog Design, 134 11 Ave SE Suite 300, Calgary AB T2G 0X5
+Project:          Centralized Passenger Screening - Issued for Record - Phase 01
+Project Number:   4247
+CAA Drawing No:   24C024
+Contract Number:  380
+
+<span class="c">-- then every file, grouped by discipline</span>
+24C024A201.dwg - ARRIVALS CONSTRUCTION PLAN - OVERALL
+24C024A202.dwg - DEPARTURES CONSTRUCTION PLAN - OVERALL
+...</pre>
+    <div class="box tip">
+      <span class="lb">Shadi's note — shortcut for the file list</span>
+      <p>Don't type the filenames. In the delivery folder run <code>dir /b /on &gt; filelist.txt</code> — that gives you every name, sorted, ready to paste. Then just add the descriptions.</p>
+    </div>
+    <h3>Then transmit — one zip per discipline</h3>
+    <p>Do not send a single combined package. <b>Each discipline gets its own eTransmit zip</b>, and the File Description PDF sits beside them, unzipped, at the top level.</p>
+    <pre><span class="c">-- what the delivery folder looks like</span>
+24C024_File Description Phase 01 2025.pdf
+24C024_Record_PH1_AR.zip
+24C024_Record_PH1_EL.zip
+24C024_Record_PH1_ME.zip
+24C024_Record_PH1_ST.zip</pre>
+
+    <h3>Zip naming</h3>
+    <pre>&lt;YYC drawing no.&gt; _ &lt;stage&gt; _ &lt;phase&gt; _ &lt;discipline&gt; .zip
+
+    24C024   _   Record   _   PH1   _   AR   .zip</pre>
+    <table>
+      <thead><tr><th>Field</th><th>Values</th></tr></thead>
+      <tbody>
+        <tr><td><b>YYC drawing no.</b></td><td><code>24C024</code> — same number as the DWG filenames</td></tr>
+        <tr><td><b>Stage</b></td><td><code>BID</code> · <code>IFC</code> · <code>Record</code></td></tr>
+        <tr><td><b>Phase</b></td><td><code>PH1</code>, <code>PH2</code>… where the project is phased</td></tr>
+        <tr><td><b>Discipline</b></td><td><code>AR</code> Architectural · <code>EL</code> Electrical · <code>ME</code> Mechanical · <code>ST</code> Structural</td></tr>
+      </tbody>
+    </table>
+    <div class="box tip">
+      <span class="lb">Shadi's note — be consistent</span>
+      <p>Pick the pattern and hold it across every discipline and every issue on the project. Underscores between fields, no spaces, no dashes. <code>24C024_Record_PH1_AR.zip</code> and <code>24C024_Record_PH1_ME.zip</code> should differ by exactly two characters and nothing else.</p>
+      <p>Mixed-up zip names are how a discipline's package gets logged against the wrong stage — and nobody notices until someone downloads Record and gets BID drawings.</p>
+    </div>
+    <div class="box warn">
+      <span class="lb">Two-letter zip codes, one-letter file codes</span>
+      <p>The zip uses <code>AR / EL / ME / ST</code>. The DWG filenames and layer names use the single letters <code>A / E / M / S</code>. Different systems, both correct in their own place — don't harmonise them.</p>
+    </div>
+
+    <h3>eTransmit settings</h3>
+    <pre>Command: <span class="k">ETRANSMIT</span>       <span class="c">run once per discipline</span>
+  Package type:              .zip
+  Include fonts:             ON      <span class="c">caa_eng.shx, caa_arch.shx, CAA.SHX</span>
+  Include CTB / plot styles: ON      <span class="c">YYC_BW_HPv1.ctb</span>
+  Include xrefs and images:  ON
+  Bind external references:  OFF     <span class="c">deselect - important</span></pre>
+    <div class="box std">
+      <span class="lb">Also due</span>
+      <p>PDFs of every sheet, plotted 1:1 at the sheet's own paper size, including professional seals, permits, and revision date and stage. <b>Do not password-protect the PDFs.</b></p>
+      <p>Record deliverables — drawings, PDFs, specs, O&amp;M manuals — are due <b>within 45 calendar days of project completion</b>, and the record drawing process is supposed to be underway before substantial performance.</p>
+    </div>
+  </div>
+</section>
+
+<div class="phase"><span>Reference</span><i></i></div>
+
+<section class="step" id="cheat">
+  <div class="hd"><div class="num">—</div><h2>Command cheat sheet</h2></div>
+  <div class="body">
+    <table>
+      <thead><tr><th>Command</th><th>Shortcut</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><span class="cmd">CHSPACE</span></td><td><code>CHSP</code></td><td>Moves objects between model and paper space, rescaling correctly</td></tr>
+        <tr><td><span class="cmd">COPYBASE</span></td><td><code>Ctrl+Shift+C</code></td><td>Copy with a specified base point</td></tr>
+        <tr><td><span class="cmd">PASTEBLOCK</span></td><td><code>Ctrl+Shift+V</code></td><td>Paste as a single block</td></tr>
+        <tr><td><span class="cmd">ALIGN</span></td><td><code>AL</code></td><td>Seat objects using matched point pairs — answer <b>No</b> to scaling</td></tr>
+        <tr><td><span class="cmd">UCS</span></td><td>—</td><td>Rotate the coordinate system. <code>OB</code> aligns to an object, <code>Z</code> takes an angle</td></tr>
+        <tr><td><span class="cmd">PLAN</span></td><td>—</td><td>Regenerate plan view. <code>C</code> = current UCS</td></tr>
+        <tr><td><span class="cmd">LAYTRANS</span></td><td>—</td><td>Layer Translator — remap names and properties, save reusable mappings</td></tr>
+        <tr><td><span class="cmd">LAYWALK</span></td><td>—</td><td>Step through layers one at a time to see their contents</td></tr>
+        <tr><td><span class="cmd">LAYISO</span> / <span class="cmd">LAYUNISO</span></td><td>—</td><td>Isolate the layer of a selected object, and undo</td></tr>
+        <tr><td><span class="cmd">LAYMRG</span></td><td>—</td><td>Merge a layer into another and remove the source</td></tr>
+        <tr><td><span class="cmd">SETBYLAYER</span></td><td>—</td><td>Force colour, linetype and lineweight back to BYLAYER</td></tr>
+        <tr><td><span class="cmd">PURGE</span></td><td><code>PU</code></td><td>Strip unused definitions — tick nested items, run twice</td></tr>
+        <tr><td><span class="cmd">AUDIT</span></td><td>—</td><td>Find and fix drawing errors</td></tr>
+        <tr><td><span class="cmd">ETRANSMIT</span></td><td>—</td><td>Package the drawing with all its dependencies</td></tr>
+      </tbody>
+    </table>
+    <div class="box std">
+      <span class="lb">Layer naming, in short</span>
+      <p>AIA long format: <code>Discipline - Major - Minor - Status</code>, four characters per group.</p>
+      <p>Disciplines: <code>A</code> Architectural · <code>C</code> Civil · <code>E</code> Electrical · <code>F</code> Fire Protection · <code>G</code> General · <code>I</code> Interiors · <code>L</code> Landscape · <code>M</code> Mechanical · <code>P</code> Plumbing · <code>S</code> Structural · <code>T</code> Telecom · <code>V</code> Survey</p>
+      <p>Same item type always on one layer — a full-height wall is <code>A-WALL</code> or <code>A-WALL-FULL</code>, never both in the same set. New layers need Spatial Data Services approval before use.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div>YYC CAD Export — internal working guide · DIALOG Design Technology</div>
+  <div class="rule">Sources: YYC CADD Manual v6.0 (2023-01-20) · Autodesk product documentation</div>
+</footer>
+
+</div>
+</body>
+</html>
