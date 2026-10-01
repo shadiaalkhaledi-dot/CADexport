@@ -239,6 +239,10 @@ M-201.01    <span class="k">--&gt;</span>  24C024M20101.dwg  <span class="c">mec
       <span class="lb">While you're in there</span>
       <p>Sheet borders and titleblock belong in <b>paper space</b>. The plan, notes, dimensions and symbols belong in <b>model space</b>. The layout origin sits at the lower-left <code>0,0,0</code> of the sheet border, and layouts always plot at 1:1.</p>
     </div>
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p><span class="cmd">YYCTITLEBLOCK</span> swaps the exported titleblock for the YYC A0 one and fills its fields from the export. <span class="cmd">YYCPAGESETUP</span> then applies the page setup. The titleblock swap is experimental, so check the fields.</p>
+    </div>
     <div class="tools" data-step="s3"></div>
   </div>
 </section>
@@ -261,6 +265,11 @@ Select objects:          <span class="c">pick the schedules / sheet annotation</
       <span class="lb">Shadi's note</span>
       <p>Very important, easy to skip, painful to fix later. Get it done while the drawing is still simple.</p>
     </div>
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p><span class="cmd">YYCSCHEDULES</span> does this for you. Click each schedule viewport's frame: what it shows moves to paper space at the same size and spot, then it offers to delete the empty viewport. Keep <span class="cmd">CHSPACE</span> for anything left over.</p>
+    </div>
+    <div class="tools" data-step="s4"></div>
   </div>
 </section>
 
@@ -357,6 +366,10 @@ Command: <span class="k">PLAN</span>
       <span class="lb">Two things YYC checks</span>
       <p>Viewports go on a layer named <code>VIEWPORT1</code>, <code>VIEWPORT2</code>, <code>VIEWPORT3</code>… set to <b>do not plot</b>.</p>
       <p>On delivery, the main layout must be the active tab and <b>every viewport locked and set to the correct scale</b>. An unlocked viewport is a failed deliverable — and it's the easiest thing in this document to forget.</p>
+    </div>
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p>The rotation is now done in step 5. <span class="cmd">YYCALIGNREC</span> and <span class="cmd">YYCALIGNAPPLY</span> turn the drawing viewport by exactly the angle of the move, so the sheet reads as exported: project north up, model at true coordinates. What's left here is <span class="cmd">YYCVPLAYERS</span>, a scale check, and <span class="cmd">YYCVPLOCK</span>, which offers to snap a drifted scale back. Keep the UCS / PLAN method above as the fallback until the tools are marked tested.</p>
     </div>
     <div class="tools" data-step="s7"></div>
   </div>
@@ -595,18 +608,18 @@ Contract Number:  380
         <tr><td>5</td><td><span class="cmd">YYCGRIDIN</span> → <span class="cmd">YYCALIGNREC</span> (first sheet) or <span class="cmd">YYCALIGNAPPLY</span> (the rest)</td><td>Moves model space onto the grid. <b>Don't MOVE by hand first</b>: the recording only captures its own clicks. The drawing viewport is turned to match automatically.</td></tr>
         <tr><td>6</td><td><span class="cmd">YYCGRIDOUT</span> → <span class="cmd">YYCCLEAN</span> → <span class="cmd">YYCFIND0</span></td><td>Clears what the grid dragged in before you touch layers.</td></tr>
         <tr><td>7</td><td><span class="cmd">YYCVPLAYERS</span> → check the scale · <span class="cmd">Manual</span> → <span class="cmd">YYCVPLOCK</span></td><td>The rotation is already done by step 5. <b>Lock only after</b> the scale is right.</td></tr>
-        <tr><td>8</td><td><span class="cmd">YYCLWDEFAULT</span> → LAYTRANS · <span class="cmd">Manual</span> (or <span class="cmd">YYCLAYMAP</span>) → <span class="cmd">YYCLAYEXPORT</span> → <span class="cmd">SETBYLAYER</span> → <span class="cmd">YYCZERO</span> → LAYWALK · <span class="cmd">Manual</span></td><td>Lineweights first so LAYTRANS doesn't carry the Revit ones across.</td></tr>
+        <tr><td>8</td><td><span class="cmd">YYCLWDEFAULT</span> → LAYTRANS · <span class="cmd">Manual</span> (or <span class="cmd">YYCLAYMAP</span>) → <span class="cmd">YYCLAYSYNC</span> → <span class="cmd">YYCLAYEXPORT</span> → <span class="cmd">SETBYLAYER</span> → <span class="cmd">YYCZERO</span> → LAYWALK · <span class="cmd">Manual</span></td><td>Lineweights first so LAYTRANS doesn't carry the Revit ones across.</td></tr>
         <tr><td>9</td><td><span class="cmd">YYCCLEAN</span> → <span class="cmd">YYCFINAL</span> → <span class="cmd">YYCQA</span>, repeated until clean, then save</td><td>Clean before checking so the purge items don't show as flags.</td></tr>
-        <tr><td>10</td><td><span class="cmd">YYCFILELIST</span> → File Description → eTransmit · <span class="cmd">Manual</span></td><td></td></tr>
+        <tr><td>10</td><td><span class="cmd">YYCFILELIST</span> → paste <code>FileDescription_list.txt</code> into the File Description → eTransmit · <span class="cmd">Manual</span></td><td>Sheet titles come straight from each titleblock.</td></tr>
       </tbody>
     </table>
     <div class="box tip">
       <span class="lb">Shadi's note — once the first sheet of a terminal works</span>
-      <p>Run the rest of that terminal's sheets through <span class="cmd">YYCBATCH</span>: <b>Titleblock → Pagesetup → Align → Vplayers → Lwdefault → Clean</b>. CHSPACE still has to happen on each sheet before Align, so batch the steps up to Pagesetup, do CHSPACE, then batch from Align on. Finish with one batch of <b>Final → Qa</b> and read <code>YYC_QA_Summary.csv</code>.</p>
+      <p>Run the rest of that terminal's sheets through <span class="cmd">YYCBATCH</span>: <b>Titleblock → Pagesetup</b>, then <span class="cmd">YYCSCHEDULES</span> on each sheet, then <b>Align → Vplayers → Lwdefault → Laysync → Clean</b>. Finish with one batch of <b>Final → Qa</b> and read <code>YYC_QA_Summary.csv</code>.</p>
     </div>
     <div class="box std">
       <span class="lb">Ideas in the queue — not built yet</span>
-      <p><b>Standard scales check.</b> Flag a viewport at 1:97.3 when it should be 1:100. · <b>Layer property sync.</b> Copy colour, linetype and lineweight from the Layer Reference onto matching layers. · <b>Stray-object check.</b> Find anything left back at the Revit origin after the move. · <b>File Description from the titleblock.</b> Read sheet titles out of the titleblock so the descriptions write themselves.</p>
+      <p><b>Team rollout.</b> One shared copy of the tools that every machine loads, so an update reaches everyone at once. Waiting until the tools are tested. · <b>Ribbon tab.</b> Build <code>YYC.cuix</code> once from <code>Ribbon-Setup.txt</code> in the add-in.</p>
     </div>
     <div class="progress" id="tk-progress"></div>
     <table>
@@ -686,17 +699,18 @@ const TOOLS = [
   {cmd:"YYCCLEAN",     step:"s6",  from:"Final-saveandclose", status:"untested", date:"", note:"", does:"Deletes empty text, purges everything 3 times for nested items, then audits with fix on. Doesn't save or close. To read the audit findings, type AUDIT once by hand."},
   {cmd:"YYCFIND0",     step:"s6",  from:"Final-Searchfor$0$", status:"untested", date:"", note:"", does:"Lists any layer, block, style or dictionary name containing $0$ (left over from binding)."},
   {cmd:"YYCVPLAYERS",  step:"s7",  from:"WIP-MoveVPToLayer", status:"untested", date:"", note:"", does:"Puts each viewport on its own VIEWPORT1, VIEWPORT2… layer set to no-plot. Deletes Layout2 only if it's empty."},
-  {cmd:"YYCVPLOCK",    step:"s7",  from:"Final-BatchDeleteLayoutLockViewports", status:"untested", date:"", note:"", does:"Locks every viewport and lists each one's scale. Run it after you've set the scale."},
+  {cmd:"YYCVPLOCK",    step:"s7",  from:"Final-BatchDeleteLayoutLockViewports", status:"untested", date:"", note:"", does:"Locks every viewport and lists its scale. If a viewport has drifted off a standard scale (1:97.3 instead of 1:100), it offers to snap it back first. The standard scales are set per profile."},
   {cmd:"YYCLWDEFAULT", step:"s8",  from:"Final-BatchLinewights", status:"untested", date:"", note:"", does:"Sets every layer's lineweight to Default, fixing the LineWeight009 / 025 / 030 that Revit stamps on export."},
+  {cmd:"YYCLAYSYNC",   step:"s8",  from:"new",  status:"untested", date:"", note:"", does:"Sets the colour, linetype and lineweight of every standard layer (status modifiers included) to match the YYC Layer Reference, loading CAA linetypes if they're missing. Run it after LAYTRANS has the names right."},
   {cmd:"YYCLAYMAP",    step:"s8",  from:"Final-SingleDrawingLayerFix", status:"untested", date:"", note:"", does:"Merges layers from a CSV (old,new per line), including objects in blocks and attributes. Doesn't need Express Tools. Use it alongside LAYTRANS for repeat mappings."},
   {cmd:"YYCLAYEXPORT", step:"s8",  from:"new",  status:"untested", date:"", note:"", does:"Writes this drawing's layers, with object counts, to YYC_LayerExport.csv and flags NON-STANDARD layers and wrong properties against the YYC Layer Reference (status modifiers are accepted). In a batch it builds one sheet for the whole set, ready for the comparison workbook."},
   {cmd:"YYCZERO",      step:"s8",  from:"Final-MoveLayer0ToAGL", status:"untested", date:"", note:"", does:"Reports what's on 0 / DEFPOINTS outside blocks and selects it in the current space. Never moves anything; you choose the layer."},
-  {cmd:"YYCQA",        step:"s9",  from:"Final-DrawingQACheck", status:"untested", date:"", note:"", does:"The §5.15 sweep as a report: purge, empty objects, 0/DEFPOINTS, BYLAYER, lineweights, dimension associativity, CAA.LIN, fonts, layer standard, viewports, page setup, $0$, xrefs. Writes <drawing>_YYC-QA.txt plus a one-line-per-drawing YYC_QA_Summary.csv."},
+  {cmd:"YYCQA",        step:"s9",  from:"Final-DrawingQACheck", status:"untested", date:"", note:"", does:"The §5.15 sweep as a report: purge, empty objects, 0/DEFPOINTS, BYLAYER, lineweights, dimension associativity, CAA.LIN, fonts, layer standard, viewports (layer, lock, standard scale, empty ones), anything left behind away from the YYC grid, page setup, $0$, xrefs. Writes <drawing>_YYC-QA.txt plus a one-line-per-drawing YYC_QA_Summary.csv."},
   {cmd:"YYCFINAL",     step:"s9",  from:"new",  status:"untested", date:"", note:"", does:"Locks viewports, makes the main layout the active tab, and zooms extents in model and paper space so anything stranded shows up."},
-  {cmd:"YYCFILELIST",  step:"s10", from:"new",  status:"untested", date:"", note:"", does:"Writes filelist.txt for the File Description (the dir /b /on shortcut) and flags names that don't follow the pattern."},
+  {cmd:"YYCFILELIST",  step:"s10", from:"new",  status:"untested", date:"", note:"", does:"Writes filelist.txt, flags badly named files, and writes FileDescription_list.txt: every drawing with its sheet title read from its YYC titleblock, grouped by discipline, ready to paste into the File Description."},
   {cmd:"YYCBATCH",     step:"toolkit", from:"new", status:"untested", date:"", note:"", does:"Runs a sequence you pick (e.g. Pagesetup > Lwdefault > Clean > Qa) over a whole folder. Opens each drawing through ActiveX with no script file, backs up first, saves as AutoCAD 2018 and logs each file. A check-only run (Qa, Export, Dollar0) doesn't save anything."}
 ];
-const STEPNAME={s2:"2",s3:"3",s5:"5",s6:"6",s7:"7",s8:"8",s9:"9",s10:"10",toolkit:"Any"};
+const STEPNAME={s4:"4",s2:"2",s3:"3",s5:"5",s6:"6",s7:"7",s8:"8",s9:"9",s10:"10",toolkit:"Any"};
 const LABEL={untested:"Untested",testing:"Testing",tested:"Tested",issue:"Issue"};
 function badge(t){const st=LABEL[t.status]?t.status:"untested";
   return '<span class="badge '+st+'">'+LABEL[st]+(t.date&&st!=="untested"?' · '+t.date:'')+'</span>';}

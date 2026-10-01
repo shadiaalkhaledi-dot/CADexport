@@ -28,6 +28,7 @@
 ;;;   Step 7   YYCVPLAYERS    Put every viewport on its own VIEWPORT# no-plot layer
 ;;;            YYCVPLOCK      Lock every viewport and list its scale
 ;;;   Step 8   YYCLWDEFAULT   Set every layer's lineweight to Default
+;;;            YYCLAYSYNC     Layer colour/linetype/lineweight to match the YYC Layer Reference
 ;;;            YYCLAYMAP      Merge layers using a CSV map (old,new)
 ;;;            YYCLAYEXPORT   Write layers to YYC_LayerExport.csv, checked against the
 ;;;                           YYC Layer Reference
@@ -46,7 +47,7 @@
 ;;; ===========================================================================
 
 (vl-load-com)
-(setq *yyc-version* "0.8.1")
+(setq *yyc-version* "0.9")
 (setq *yyc-modifiers* '("DEMO" "EXST" "FUTR" "MOVE" "NEWW" "NICN" "NPLT" "PRPS" "RELO" "TEMP"))
 
 ;;; ---------------------------------------------------------------------------
@@ -58,7 +59,7 @@
 
 ;; Settings live in named PROFILES (e.g. "24C024 DTB", "ITB"), one set of kit
 ;; files per project or area. Profile / Profiles / ToolsPath are shared.
-(setq *yyc-keys* '("Description" "Kit" "Template" "Titleblock" "PageSetup" "Grid" "GridBlock" "LayerRef" "LinFile" "LayerMap" "DwgNo" "CTB" "Fonts"))
+(setq *yyc-keys* '("Description" "Scales" "SchedMargin" "Kit" "Template" "Titleblock" "PageSetup" "Grid" "GridBlock" "LayerRef" "LinFile" "LayerMap" "DwgNo" "CTB" "Fonts"))
 
 (defun yyc:profile ( / p) (setq p (getenv "YYC_Profile")) (if (and p (/= p "")) p "Default"))
 (defun yyc:pkey (key profile)
@@ -291,6 +292,8 @@
   (yyc:set "DwgNo"     (yyc:ask "YYC drawing number" (yyc:get "DwgNo" "24C024")))
   (yyc:set "CTB"       (yyc:ask "Plot style table" (yyc:get "CTB" "YYC_BW_HPv1.ctb")))
   (yyc:set "Fonts"     (yyc:ask "Allowed font files, comma separated" (yyc:get "Fonts" "caa_eng.shx,caa_arch.shx,CAA.SHX")))
+  (yyc:set "Scales"    (yyc:ask "Standard viewport scales" (yyc:get "Scales" "1:1,1:2,1:5,1:10,1:20,1:25,1:50,1:75,1:100,1:125,1:200,1:250,1:500,1:1000")))
+  (yyc:set "SchedMargin" (yyc:ask "YYCSCHEDULES margin past the viewport frame, in paper mm" (yyc:get "SchedMargin" "5")))
   (yyc:print-settings)
   (yyc:msg "Check or switch profiles any time with YYCPROFILES.")
 )
@@ -1219,10 +1222,33 @@
 )
 (defun c:YYCVPLAYERS () (yyc:run 'yyc:t-vplayers))
 
-(defun yyc:t-vplock (doc / n vp)
+;; --- standard scales (per profile, e.g. "1:50,1:100,1:200") ---
+(defun yyc:std-scales ( / l)
+  (setq l (yyc:split (yyc:get "Scales" "1:1,1:2,1:5,1:10,1:20,1:25,1:50,1:75,1:100,1:125,1:200,1:250,1:500,1:1000") ","))
+  (mapcar '(lambda (x) (atof (cadr (yyc:split (yyc:trim x) ":")))) l)
+)
+;; nil when the viewport is at a standard scale, otherwise the nearest standard denominator
+(defun yyc:scale-off (vp / s den best)
+  (setq s (yyc:try 'vla-get-CustomScale (list vp)))
+  (if (and s (> s 0))
+    (progn
+      (setq den (/ 1.0 s))
+      (foreach d (yyc:std-scales)
+        (if (or (not best) (< (abs (- d den)) (abs (- best den)))) (setq best d)))
+      (if (and best (> (abs (- best den)) (* 0.0001 best))) best nil))
+  )
+)
+
+(defun yyc:t-vplock (doc / n vp near)
   (setq n 0)
   (foreach pr (yyc:vp-list doc)
-    (setq vp (cdr pr))
+    (setq vp (cdr pr) near (yyc:scale-off vp))
+    (if near
+      (progn
+        (yyc:msg (strcat "  " (car pr) ": scale " (yyc:scale-text vp) " is NOT a standard scale (nearest 1:" (rtos near 2 0) ")."))
+        (if (and (not (yyc:batch-p)) (yyc:yes (strcat "  Set it to 1:" (rtos near 2 0) " before locking?") "Yes"))
+          (progn (vl-catch-all-apply 'vla-put-DisplayLocked (list vp :vlax-false))
+                 (vl-catch-all-apply 'vla-put-CustomScale (list vp (/ 1.0 near)))))))
     (if (not (yyc:err-p (vl-catch-all-apply 'vla-put-DisplayLocked (list vp :vlax-true)))) (setq n (1+ n)))
     (yyc:msg (strcat "  " (car pr) ": " (vla-get-Layer vp) ", scale " (yyc:scale-text vp) ", locked"))
   )
@@ -1234,6 +1260,36 @@
 ;;; ---------------------------------------------------------------------------
 ;;; Step 8 - Layers
 ;;; ---------------------------------------------------------------------------
+
+;; --- copy colour / linetype / lineweight from the YYC Layer Reference ---
+(defun yyc:t-laysync (doc / std ref u pos n lin lt fail)
+  (setq std (yyc:std-layers) n 0 lin (yyc:get "LinFile" nil))
+  (if (not std)
+    (yyc:msg "No layer reference set for this profile - YYCPROFILES > Edit.")
+    (progn
+      (vlax-for L (vla-get-Layers doc)
+        (setq u (strcase (vla-get-Name L)) ref (assoc u std))
+        (if (and (not ref) (member (yyc:layer-status u std) '("MODIFIER")) (setq pos (vl-string-position 45 u nil T)))
+          (setq ref (assoc (substr u 1 pos) std)))
+        (if (and ref (/= (yyc:layer-diff L std) ""))
+          (progn
+            (setq lt (nth 2 ref))
+            (if (and (not (yyc:try 'vla-Item (list (vla-get-Linetypes doc) lt))) lin)
+              (vl-catch-all-apply 'vla-Load (list (vla-get-Linetypes doc) lt lin)))
+            (vl-catch-all-apply 'vla-put-Color (list L (nth 1 ref)))
+            (if (yyc:err-p (vl-catch-all-apply 'vla-put-Linetype (list L lt)))
+              (setq fail (cons (strcat (vla-get-Name L) " (linetype " lt " not loaded)") fail)))
+            (vl-catch-all-apply 'vla-put-Lineweight (list L (nth 3 ref)))
+            (setq n (1+ n))
+          )
+        )
+      )
+      (yyc:msg (strcat (itoa n) " layer(s) set to the colour, linetype and lineweight of the YYC Layer Reference."))
+      (if fail (yyc:msg (strcat "Check: " (yyc:join (reverse fail) ", ") " - set the CAA .lin file in the profile.")))
+    )
+  )
+)
+(defun c:YYCLAYSYNC () (yyc:run 'yyc:t-laysync))
 
 (defun yyc:t-lwdefault (doc / n)
   (setq n 0)
@@ -1537,7 +1593,7 @@
 )
 
 (defun yyc:t-qa (doc / w cnt refs layers std blank nonstd diffs lwbad cl curL unused lins ltbad allowed fonts
-                   bad main act ctb ctbbad xr h f rpt ff)
+                   bad main act ctb ctbbad xr h f rpt ff offsc empty e stray lo hi)
   (setq *yyc-rep* '() *yyc-flags* '())
   (yyc:msg "YYC QA - reading the drawing (nothing will be changed)...")
   (setq w (yyc:walk doc) cnt (nth 0 w) refs (nth 1 w) layers (vla-get-Layers doc))
@@ -1628,6 +1684,30 @@
             (= (vla-get-Plottable (vla-Item layers cl)) :vlax-true)
             (= (vla-get-DisplayLocked h) :vlax-false))
       (setq bad (cons (car pr) bad)))
+    (if (setq ff (yyc:scale-off h))
+      (setq offsc (cons (strcat (car pr) " at " (yyc:scale-text h) " (nearest 1:" (rtos ff 2 0) ")") offsc)))
+    (if (and (yyc:active-p doc) (setq e (yyc:try 'vlax-vla-object->ename (list h)))
+             (not (car (yyc:vp-contents doc e (yyc:vp-geom e) 0.0))))
+      (setq empty (cons (car pr) empty)))
+  )
+  (yyc:check "Viewports at standard scales" (not offsc)
+    (append (yyc:list-line "Not a standard scale" (reverse offsc)) (if offsc (list "Fix: YYCVPLOCK offers to snap them"))))
+  (yyc:check "No empty viewports" (not empty)
+    (append (yyc:list-line "Viewports showing nothing, in layouts" (reverse empty)) (if empty (list "Delete them (left over after YYCSCHEDULES / CHSPACE)"))))
+  ;; anything left far from the YYC grid after the move
+  (if (and (yyc:aligned-mark doc) (setq h (nth 1 (yyc:align-pts (yyc:profile)))))
+    (progn
+      (setq stray 0)
+      (vlax-for o (vla-get-ModelSpace doc)
+        (if (not (yyc:err-p (vl-catch-all-apply 'vla-GetBoundingBox (list o 'lo 'hi))))
+          (if (> (distance (list (car h) (cadr h))
+                           (list (/ (+ (car (vlax-safearray->list lo)) (car (vlax-safearray->list hi))) 2.0)
+                                 (/ (+ (cadr (vlax-safearray->list lo)) (cadr (vlax-safearray->list hi))) 2.0)))
+                 3000000.0)
+            (setq stray (1+ stray)))))
+      (yyc:check "Nothing left behind away from the YYC grid" (= stray 0)
+        (if (> stray 0) (list (strcat (itoa stray) " model-space object(s) more than 3 km from the grid - probably left at the Revit origin. ZOOM E to find them."))))
+    )
   )
   (yyc:check "Viewports on VIEWPORT# no-plot layers, locked" (not bad)
     (append (yyc:list-line "Problem viewports in layouts" (reverse bad))
@@ -1704,7 +1784,31 @@
        (vl-every '(lambda (c) (or (<= 48 c 57) (<= 65 c 90))) (vl-string->list (strcase base))))
 )
 
-(defun c:YYCFILELIST ( / folder files dwgno f bad)
+;; sheet title read from the YYC titleblock in a closed drawing (ObjectDBX)
+(defun yyc:read-title (path / dbx title parts)
+  (if (setq dbx (yyc:dbx-open path))
+    (progn
+      (foreach lay (yyc:paper-layouts dbx)
+        (if (not title)
+          (vlax-for o (vla-get-Block lay)
+            (if (and (not title) (= (vla-get-ObjectName o) "AcDbBlockReference")
+                     (wcmatch (strcase (vla-get-Name o)) "*TITLEBLOCK*")
+                     (= (vla-get-HasAttributes o) :vlax-true))
+              (progn
+                (setq parts nil)
+                (foreach a (vlax-invoke o 'GetAttributes)
+                  (if (wcmatch (strcase (vla-get-TagString a)) "SHEET-TITLE-#")
+                    (setq parts (cons (cons (vla-get-TagString a) (yyc:trim (vla-get-TextString a))) parts))))
+                (setq parts (vl-remove-if '(lambda (x) (member (strcase (cdr x)) '("" "DRAWING NAME 1" "DRAWING NAME 2" "DRAWING NAME 3")))
+                              (vl-sort parts '(lambda (x y) (< (car x) (car y))))))
+                (if parts (setq title (strcase (yyc:join (mapcar 'cdr parts) " ")))))))))
+      (yyc:dbx-close dbx)
+    )
+  )
+  title
+)
+
+(defun c:YYCFILELIST ( / folder files dwgno f bad lines disc title cur notitle)
   (setq folder (yyc:browse-folder "Delivery folder to list"))
   (if folder
     (progn
@@ -1714,6 +1818,27 @@
         (progn (foreach x files (write-line x f)) (close f)))
       (foreach x files (if (not (yyc:name-ok (vl-filename-base x) dwgno)) (setq bad (cons x bad))))
       (yyc:msg (strcat (itoa (length files)) " drawing(s) written to " folder "\\filelist.txt"))
+      ;; File Description lines from each drawing's YYC titleblock, grouped by discipline letter
+      (yyc:msg "Reading sheet titles from the titleblocks...")
+      (foreach x files
+        (setq title (yyc:read-title (strcat folder "\\" x))
+              disc (substr (strcase (vl-filename-base x)) (1+ (strlen dwgno)) 1))
+        (if (not title) (setq notitle (cons x notitle)))
+        (setq lines (cons (list disc x (if title title "(TITLE NOT FOUND)")) lines)))
+      (setq lines (vl-sort lines '(lambda (a b) (if (= (car a) (car b)) (< (cadr a) (cadr b)) (< (car a) (car b))))))
+      (if (setq f (open (strcat folder "\\FileDescription_list.txt") "w"))
+        (progn
+          (foreach l lines
+            (if (/= (car l) cur)
+              (progn (setq cur (car l)) (write-line "" f)
+                     (write-line (cdr (cond ((assoc cur '(("A" . "ARCHITECTURAL") ("E" . "ELECTRICAL") ("M" . "MECHANICAL") ("S" . "STRUCTURAL")
+                                                         ("C" . "CIVIL") ("F" . "FIRE PROTECTION") ("G" . "GENERAL") ("I" . "INTERIORS")
+                                                         ("L" . "LANDSCAPE") ("P" . "PLUMBING") ("T" . "TELECOM"))))
+                                            ((cons cur cur)))) f)))
+            (write-line (strcat (cadr l) " - " (caddr l)) f))
+          (close f)
+          (yyc:msg (strcat "File Description lines written to " folder "\\FileDescription_list.txt - paste them into the File Description."))
+          (if notitle (yyc:msg (strcat "No YYC titleblock title found in: " (yyc:join (reverse notitle) ", ") " (run YYCTITLEBLOCK on them, or type those by hand)")))))
       (if bad
         (progn
           (yyc:msg (strcat "Names that don't follow " dwgno " + sheet number (letters and digits only):"))
@@ -1753,6 +1878,7 @@
    ("7 Viewport" "YYCVPLOCK" "Lock every viewport and list its scale. Only after the scale and rotation are right.")
    ("8 Layers" "YYCLWDEFAULT" "Set every layer's lineweight to Default (fixes the Revit LineWeight009/025/030).")
    ("8 Layers" "LAYTRANS"   "(AutoCAD) Layer Translator - one pass per job, Map Same first, force BYLAYER in Settings.")
+   ("8 Layers" "YYCLAYSYNC" "Set colour, linetype and lineweight of every standard layer to match the YYC Layer Reference.")
    ("8 Layers" "YYCLAYMAP"  "Merge layers from a saved CSV map (old,new). For mappings you repeat on every sheet.")
    ("8 Layers" "YYCLAYEXPORT" "Write all layers to YYC_LayerExport.csv, flagged against the YYC Layer Reference.")
    ("8 Layers" "SETBYLAYER" "(AutoCAD) Force colour and linetype back to BYLAYER. Ctrl+A first, include blocks.")
@@ -1863,7 +1989,7 @@
 ;;; ---------------------------------------------------------------------------
 
 (setq *yyc-batch-cmds*
-  '(("Titleblock" . yyc:t-titleblock) ("Align" . yyc:t-alignapply) ("Pagesetup" . yyc:t-pagesetup) ("Vplayers" . yyc:t-vplayers) ("Lwdefault" . yyc:t-lwdefault)
+  '(("Titleblock" . yyc:t-titleblock) ("Align" . yyc:t-alignapply) ("Pagesetup" . yyc:t-pagesetup) ("Vplayers" . yyc:t-vplayers) ("Lwdefault" . yyc:t-lwdefault) ("Laysync" . yyc:t-laysync)
     ("Mapcsv" . yyc:t-laymap) ("Clean" . yyc:t-clean) ("Dollar0" . yyc:t-find0)
     ("Export" . yyc:t-layexport) ("Qa" . yyc:t-qa) ("Final" . yyc:t-final)))
 (setq *yyc-readonly* '(yyc:t-find0 yyc:t-layexport yyc:t-qa))
@@ -1946,5 +2072,5 @@
 (setq *yyc-batch* nil *yyc-cur* nil)
 (vl-catch-all-apply 'yyc:build-menu nil)
 (vl-catch-all-apply 'yyc:load-ribbon nil)
-(princ (strcat "\nYYC CAD Tools v" *yyc-version* " (ActiveX) loaded. Type YYCHELP for every command in order. Profile: " (yyc:profile) ". Commands: YYCHELP YYCPROFILES YYCRENAME YYCTITLEBLOCK YYCPAGESETUP YYCSCHEDULES YYCGRIDIN YYCALIGNREC YYCALIGNAPPLY YYCVPFOLLOW YYCALIGNUSE YYCGRIDOUT YYCCLEAN YYCFIND0 YYCVPLAYERS YYCVPLOCK YYCLWDEFAULT YYCLAYMAP YYCLAYEXPORT YYCZERO YYCQA YYCFINAL YYCFILELIST YYCBATCH"))
+(princ (strcat "\nYYC CAD Tools v" *yyc-version* " (ActiveX) loaded. Type YYCHELP for every command in order. Profile: " (yyc:profile) ". Commands: YYCHELP YYCPROFILES YYCRENAME YYCTITLEBLOCK YYCPAGESETUP YYCSCHEDULES YYCGRIDIN YYCALIGNREC YYCALIGNAPPLY YYCVPFOLLOW YYCALIGNUSE YYCGRIDOUT YYCCLEAN YYCFIND0 YYCVPLAYERS YYCVPLOCK YYCLWDEFAULT YYCLAYSYNC YYCLAYMAP YYCLAYEXPORT YYCZERO YYCQA YYCFINAL YYCFILELIST YYCBATCH"))
 (princ)
