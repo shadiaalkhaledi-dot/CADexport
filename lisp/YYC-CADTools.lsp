@@ -48,7 +48,7 @@
 ;;; ===========================================================================
 
 (vl-load-com)
-(setq *yyc-version* "1.1")
+(setq *yyc-version* "1.1.1")
 (setq *yyc-modifiers* '("DEMO" "EXST" "FUTR" "MOVE" "NEWW" "NICN" "NPLT" "PRPS" "RELO" "TEMP"
                         "ABDN" "RMVD" "PATT" "SYMB" "TEXT" "IDEN" "EQPM" "ELEV"))
 
@@ -1404,7 +1404,8 @@
 
 ;; --- copy colour / linetype / lineweight from the YYC Layer Reference ---
 ;; give one layer the colour, linetype, Default lineweight, plot and description of the
-;; YYC standard. Modifier layers (A-WALL-DEMO) only get lineweight and plot. Returns
+;; YYC standard. Modifier layers (A-WALL-DEMO) get the parent colour, lineweight and plot,
+;; and keep their exported linetype. Returns
 ;; nil (nothing to do / not YYC), T (fixed), or a string (fixed, but linetype missing).
 (setq *yyc-mod-names*
   '(("DEMO" . "Demolition") ("EXST" . "Existing to Remain") ("FUTR" . "Future Work") ("MOVE" . "Items to be Moved")
@@ -1430,12 +1431,12 @@
   (if (and ref (/= (yyc:layer-diff L std) ""))
     (progn
       (setq res T lt (nth 2 ref))
+      (vl-catch-all-apply 'vla-put-Color (list L (nth 1 ref)))     ; modifiers too: colour = pen weight
       (if (not modp)
         (progn
           (if (and (/= (strcase (vla-get-Linetype L)) (strcase lt)) (= (strcase lt) "CONTINUOUS")
                    (not (member (strcase (vla-get-Linetype L)) '("BYLAYER" "BYBLOCK"))))
             (setq *yyc-lt-lost* (cons (strcat (vla-get-Name L) " (" (vla-get-Linetype L) ")") *yyc-lt-lost*)))
-          (vl-catch-all-apply 'vla-put-Color (list L (nth 1 ref)))
           (yyc:load-lt doc lt)
           (if (yyc:err-p (vl-catch-all-apply 'vla-put-Linetype (list L lt)))
             (setq res (strcat (vla-get-Name L) " (linetype " lt " not loaded)")))))
@@ -1588,15 +1589,15 @@
   (cond ((= lw -3) "Default") ((= lw -2) "ByBlock") ((= lw -1) "ByLayer") (T (strcat (rtos (/ lw 100.0) 2 2) "mm")))
 )
 
-;; A layer with a modifier (A-WALL-DEMO) is checked against its parent (A-WALL) for
-;; lineweight and plot only. The manual gives no colour or linetype for modifiers, so a
-;; red dashed DEMO layer is left as you set it. -NPLT layers must be no-plot.
+;; A layer with a modifier (A-WALL-DEMO) takes its parent's (A-WALL) colour, lineweight and
+;; plot. Its LINETYPE is left as exported (a dashed DEMO stays dashed) - the manual gives no
+;; linetype for modifiers. -NPLT layers must be no-plot.
 (defun yyc:layer-diff (L std / u pos ref out modp plot)
   (setq u (strcase (vla-get-Name L)) ref (assoc u std))
   (if (and (not ref) (setq pos (vl-string-position 45 u nil T))) (setq ref (assoc (substr u 1 pos) std) modp T))
   (if ref
     (progn
-      (if (and (not modp) (/= (vla-get-Color L) (nth 1 ref)))
+      (if (/= (vla-get-Color L) (nth 1 ref))
         (setq out (cons (strcat "colour " (itoa (vla-get-Color L)) " should be " (itoa (nth 1 ref))) out)))
       (if (and (not modp) (/= (strcase (vla-get-Linetype L)) (nth 2 ref)))
         (setq out (cons (strcat "linetype " (vla-get-Linetype L) " should be " (nth 2 ref)) out)))
