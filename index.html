@@ -170,10 +170,10 @@
       <thead><tr><th>File</th><th>What it's for</th></tr></thead>
       <tbody>
         <tr><td><code>YYC Titleblock - Revit Export_A0.dwt</code></td><td>Page setup + A0 sheet. Import once — it saves to your machine.</td></tr>
-        <tr><td><code>04grid-dtb.dwg</code></td><td>The YYC grid for the DTB. Your position reference for every drawing. Other areas (ITB…) have their own grid file; use the one for the area you're in.</td></tr>
-        <tr><td><code>YYC_Layer Reference.dwg</code></td><td>Translate-to target for <span class="cmd">LAYTRANS</span>.</td></tr>
-        <tr><td><code>YYC STD Layers.dws</code></td><td>The standards file itself.</td></tr>
-        <tr><td><code>Layer_Comparison_YYC.xlsx</code></td><td>Paste your layer list in, see what's off-standard.</td></tr>
+        <tr><td><code>YYC Grid - 04 DTB Domestic.dwg</code></td><td>The YYC grid for the DTB. Your position reference for every drawing. Other areas (ITB…) have their own grid file; use the one for the area you're in.</td></tr>
+        <tr><td><code>YYC Layer Reference - CADD Manual v6.2.dwg</code> / <code>.dws</code></td><td>Translate-to target for <span class="cmd">LAYTRANS</span>, and the standards file. Built once per kit with <span class="cmd">YYCMAKEREF</span> so it holds every manual layer. (The old <code>YYC_Layer Reference.dwg</code> files are missing 400+ layers; don't use them.)</td></tr>
+        <tr><td><code>Layer_Comparison_YYC.xlsx</code></td><td>Paste your layer list in, see what's off-standard. (With the toolkit, <code>YYC Layer Mapper.xlsx</code> does this job, see step 8.)</td></tr>
+        <tr><td><code>YYC Standard Layers - CADD Manual v6.2.csv</code> · <code>YYC Layer Mapper.xlsx</code></td><td>Toolkit only: the full YYC layer standard and the step 8 workbook. Both live in the kit folder.</td></tr>
       </tbody>
     </table>
 
@@ -219,6 +219,10 @@ M-201.01    <span class="k">--&gt;</span>  24C024M20101.dwg  <span class="c">mec
       <span class="lb">Why it's strict</span>
       <p>The drawing number is what makes each file unique sheet-to-sheet <em>and</em> project-to-project in the Airport Authority's archive. It's assigned by their PM at project start — for 24C024 it's already set. The filename you deliver is the filename they file forever.</p>
     </div>
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p><span class="cmd">YYCRENAME</span> renames a whole export folder in one go. Run it from a <b>blank drawing</b>: AutoCAD can't rename a file that's open.</p>
+    </div>
     <div class="tools" data-step="s2"></div>
   </div>
 </section>
@@ -241,7 +245,7 @@ M-201.01    <span class="k">--&gt;</span>  24C024M20101.dwg  <span class="c">mec
     </div>
     <div class="box tip">
       <span class="lb">With the toolkit</span>
-      <p><span class="cmd">YYCTITLEBLOCK</span> swaps the exported titleblock for the YYC A0 one and fills its fields from the export. <span class="cmd">YYCPAGESETUP</span> then applies the page setup. The titleblock swap is experimental, so check the fields.</p>
+      <p><span class="cmd">YYCPAGESETUP</span> applies the page setup and moves the sheet onto 0,0. (<span class="cmd">YYCTITLEBLOCK</span>, the titleblock swap, is parked: it messes up the drawing and will be fixed later.) <b>If the sheet looks unchanged afterwards, type <code>RE</code></b> (REGEN) and the A0 size shows. </p>
     </div>
     <div class="tools" data-step="s3"></div>
   </div>
@@ -281,7 +285,7 @@ Select objects:          <span class="c">pick the schedules / sheet annotation</
     <p>Your export sits near Revit's internal origin. The YYC grid sits out at the Local Airport Coordinate System — roughly <code>N 18,415,271</code> / <code>E 16,173,697</code> in millimetres. Which is why, as you'll see, your plan starts out miles from the grid.</p>
 
     <h3>Bring the grid in</h3>
-    <pre>Open <span class="k">04grid-dtb.dwg</span>
+    <pre>Open <span class="k">YYC Grid - 04 DTB Domestic.dwg</span>
 Command: <span class="k">COPYBASE</span>      <span class="c">or Ctrl+Shift+C</span>
 Base point: <span class="k">0,0,0</span>       <span class="c">type it, don't pick it</span>
 Select objects: <span class="c">the grid</span>
@@ -314,6 +318,10 @@ Scale objects to alignment points? [Yes/No] &lt;N&gt;: <span class="k">N</span><
       <span class="lb">Shadi's note</span>
       <p>Pasting as a block rather than raw geometry is deliberate — it stays one selectable object, so in the next step you delete it in one click instead of hunting stray grid lines through your drawing.</p>
     </div>
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p><span class="cmd">YYCGRIDIN</span> brings in the right grid for your profile (04 DTB or 20 ITB) at 0,0,0 as one block. On the <b>first sheet</b> of a terminal, <span class="cmd">YYCALIGNREC</span> does the ALIGN with the same four clicks, never scales, and remembers the move. On <b>every other sheet</b>, <span class="cmd">YYCALIGNAPPLY</span> repeats it with no clicks. Both also turn the drawing viewport (step 7). Don't MOVE by hand first: the recording only knows its own clicks.</p>
+    </div>
     <div class="tools" data-step="s5"></div>
   </div>
 </section>
@@ -328,6 +336,10 @@ Command: <span class="k">AUDIT</span>            <span class="c">Fix any errors 
     <div class="box tip">
       <span class="lb">Shadi's note</span>
       <p>Purge and audit here, mid-workflow, not only at the end. The grid file drags in its own layers, blocks and linetypes, and clearing them now means they don't pollute your layer list when you get to <span class="cmd">LAYTRANS</span> — where a clean list is the whole game.</p>
+    </div>
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p><span class="cmd">YYCGRIDOUT</span> deletes the grid block and its definition. <span class="cmd">YYCCLEAN</span> deletes empty text, purges three times and audits. <span class="cmd">YYCFIND0</span> lists any <code>$0$</code> names left from binding.</p>
     </div>
     <div class="tools" data-step="s6"></div>
   </div>
@@ -369,7 +381,13 @@ Command: <span class="k">PLAN</span>
     </div>
     <div class="box tip">
       <span class="lb">With the toolkit</span>
-      <p>The rotation is now done in step 5. <span class="cmd">YYCALIGNREC</span> and <span class="cmd">YYCALIGNAPPLY</span> turn the drawing viewport by exactly the angle of the move, so the sheet reads as exported: project north up, model at true coordinates. What's left here is <span class="cmd">YYCVPLAYERS</span>, a scale check, and <span class="cmd">YYCVPLOCK</span>, which offers to snap a drifted scale back. Keep the UCS / PLAN method above as the fallback until the tools are marked tested.</p>
+      <p>The rotation is now done in step 5. <span class="cmd">YYCALIGNREC</span> and <span class="cmd">YYCALIGNAPPLY</span> turn the drawing viewport by exactly the angle of the move and give it a matching <b>YYC Project North</b> UCS, the same result as UCS OB + PLAN: the sheet reads as exported, project north up, model at true coordinates, and crosshairs and ortho follow the sheet. What's left here is <span class="cmd">YYCVPLAYERS</span>, a scale check, and <span class="cmd">YYCVPLOCK</span>, which offers to snap a drifted scale back. <b>Note:</b> if there are more <code>VIEWPORT#</code> layers than viewports (for example, after <span class="cmd">YYCSCHEDULES</span> deleted some), run <span class="cmd">YYCVPLAYERS</span> again, then <span class="cmd">YYCCLEAN</span> to purge the empty ones. Keep the UCS / PLAN method above as the fallback until the tools are marked tested.</p>
+    </div>
+    <div class="box std">
+      <span class="lb">The UCS: what right looks like</span>
+      <p>There are two UCSs on a YYC sheet, and they should be different. <b>Inside the drawing viewport</b>, the UCS is turned to match the plan (the <b>YYC Project North</b> UCS). <b>On the sheet itself</b> (paper space), the UCS stays at <b>World</b>.</p>
+      <p><b>Check it in ten seconds:</b> double-click into the drawing viewport. The crosshairs should line up with the plan's grid lines, and ortho should draw along the walls. Double-click outside the viewport. The crosshairs should be square to the sheet border again.</p>
+      <p><b>If the sheet's crosshairs are tilted</b> in paper space, the paper UCS was turned by mistake. Stay in paper space, type <code>UCS</code>, then <code>W</code>. <b>If the viewport's crosshairs don't follow the plan</b>, run <span class="cmd">YYCVPUCS</span>. It only touches the drawing viewport, never schedules or keyplans.</p>
     </div>
     <div class="tools" data-step="s7"></div>
   </div>
@@ -383,13 +401,20 @@ Command: <span class="k">PLAN</span>
     <p>The longest phase, and where compliance is actually won or lost. There are two separate problems, and they need different tools.</p>
     <p><b>Problem one:</b> the YYC standard has more and different categories than Revit maps to. <b>Problem two:</b> individual objects land on the wrong layer even when the layer mapping was right — a habit of MEP families in particular.</p>
 
+    <div class="box tip">
+      <span class="lb">With the toolkit — the Layer Mapper workbook</span>
+      <p>The toolkit replaces most of 8a and 8b with one round trip through Excel. You only decide each export layer once, ever.</p>
+      <p><b>1.</b> <span class="cmd">YYCLWDEFAULT</span>. &nbsp;<b>2.</b> <span class="cmd">YYCLAYXL</span>: AutoCAD writes every layer into the <b>Map</b> sheet of <code>YYC Layer Mapper.xlsx</code> and opens it. &nbsp;<b>3.</b> Work down the red <b>CHOOSE</b> rows and pick a YYC layer from the dropdown in the yellow <b>YOUR CHOICE</b> column. Leave it blank if you're not sure; <span class="cmd">YYCLAYWALK</span> shows it to you later. To <b>merge</b>, pick a layer that's already in the drawing; the Action column shows <i>Merge into …</i>. Save. &nbsp;<b>4.</b> <span class="cmd">YYCLAYMAP</span> applies it all and remembers it. &nbsp;<b>5.</b> <span class="cmd">YYCLAYWALK</span> for whatever you left blank: <b>Show it</b> isolates the layer, pick its YYC layer, <b>Map</b>. &nbsp;<b>6.</b> <span class="cmd">YYCLAYSYNC</span> sets colour, linetype and lineweight to the standard.</p>
+      <p>On the next drawing, everything you've mapped before comes back as <b>REMEMBERED</b> (blue). Revit numbers like <code>A-WALL-3</code> go automatically. The dropdown holds all 691 layers from the YYC CADD Manual v6.2, including <code>*-ANNO-*</code> for every discipline. Keep LAYTRANS below as the fallback until the tools are marked tested.</p>
+    </div>
+
     <h3>8a · Layer Translator — <span class="cmd">LAYTRANS</span></h3>
     <p>The Layer Translator remaps layer names <em>and</em> layer properties in one pass, then converts everything sitting on them. <b>Manage</b> tab → <b>CAD Standards</b> panel → <b>Layer Translator</b>, or just type <span class="cmd">LAYTRANS</span>.</p>
     <table>
       <thead><tr><th>Control</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td><b>Translate From</b></td><td>Layers currently in your drawing. Dark icon = in use, white icon = empty. Right-click → <b>Purge Layers</b> clears the empty ones on the spot.</td></tr>
-        <tr><td><b>Load</b></td><td>Loads the target list. Point it at <code>YYC_Layer Reference.dwg</code> or <code>YYC STD Layers.dws</code>. You can load more than one file.</td></tr>
+        <tr><td><b>Load</b></td><td>Loads the target list. Point it at <code>YYC Layer Reference - CADD Manual v6.2.dwg</code> (or the <code>.dws</code> beside it) in the kit folder. You can load more than one file.</td></tr>
         <tr><td><b>Selection Filter</b></td><td>Wildcard select — <code>A-ANNO*</code> grabs every annotation layer at once. This is how you work in batches.</td></tr>
         <tr><td><b>Map</b> / <b>Map Same</b></td><td><b>Map</b> sends selected layers to the highlighted target. <b>Map Same</b> auto-matches every layer whose name is already identical on both sides — always click this first.</td></tr>
         <tr><td><b>Edit</b></td><td>Adjust colour, linetype, lineweight, transparency or plot style on a mapping before running it.</td></tr>
@@ -417,14 +442,17 @@ Command: <span class="k">PLAN</span>
 
     <h3>8b · Check against the comparison spreadsheet</h3>
     <p>Open the <b>Layer Properties Manager</b>, click in the layer list, <b>select all</b>, and <code>Ctrl+C</code> — no export needed. Paste into the <code>PasteExport</code> tab of the comparison workbook and it flags what isn't in the YYC standard or is on the wrong properties.</p>
+    <p><i>With the toolkit you can skip this: <span class="cmd">YYCLAYXL</span> sends the layers to the Layer Mapper workbook for you, and the standard check runs again in <span class="cmd">YYCQA</span>. The modifier note below still applies, and the toolkit already knows the modifiers.</i></p>
     <div class="box tip">
       <span class="lb">Shadi's note — modifiers</span>
       <p>Layers carrying a status modifier sometimes don't get picked up. <code>A-DOOR-DEMO</code> is <code>A-DOOR</code> plus the <code>DEMO</code> modifier — legitimate, just not in the base list. Add them once and you're fine from then on.</p>
+      <p><b>What the manual says (4.1.6):</b> a status modifier goes in as a fourth field, or replaces the minor group. It gives <b>no colour or linetype</b> for modifier layers, and only <code>-NPLT</code> has a rule: no plot. So the toolkit accepts any YYC layer plus a modifier, checks its lineweight and plot, and leaves its colour and linetype to you. A red dashed <code>A-WALL-DEMO</code> stays red dashed. Lineweight stays <b>Default</b> for modifier layers too: the manual sets every pen weight by colour through the CTB, so if demolition should plot lighter or heavier, change its colour, not its lineweight. In the Layer Mapper, a typed <code>A-WALL-DEMO</code> shows "Wall + Demolition (modifier - OK)". Remember colour is pen weight through the CTB, so a new colour also changes how heavy it plots.</p>
       <p>Valid modifiers: <code>DEMO</code> · <code>EXST</code> · <code>FUTR</code> · <code>MOVE</code> · <code>NEWW</code> · <code>NICN</code> · <code>NPLT</code> · <code>PRPS</code> · <code>RELO</code> · <code>TEMP</code></p>
     </div>
 
     <h3>8c · Walk the layers — <span class="cmd">LAYWALK</span></h3>
     <p>Correct layer <em>names</em> don't mean correct layer <em>contents</em>. MEP is the usual culprit: the family itself exports to the right layer, but its annotation symbol lands on a generic annotation layer. No spreadsheet catches that. You have to look.</p>
+    <p><i>The toolkit can't do this part for you. <span class="cmd">YYCLAYWALK</span> fixes layer <b>names</b>; this walk checks what's <b>on</b> them. Its <b>Show it</b> button isolates a layer the same way, if you'd rather stay in one window.</i></p>
     <pre>Command: <span class="k">LAYWALK</span>
 <span class="c">-- isolates one layer at a time so you can see what's actually on it</span>
 <span class="c">-- tick "Restore on exit" before you close the dialog</span>
@@ -466,6 +494,10 @@ Command: <span class="k">PLAN</span>
     <li><b>ZOOM Extents</b> — nothing stranded off-sheet.</li>
     <li><b>One eTransmit zip per discipline</b>, named to the project pattern, with the File Description PDF alongside.</li>
   </ul>
+  <div class="box tip">
+    <span class="lb">With the toolkit</span>
+    <p><span class="cmd">YYCCLEAN</span> → <span class="cmd">YYCFINAL</span> (locks viewports, main layout active, zoom extents) → <span class="cmd">YYCQA</span>. QA changes nothing. Pick <b>This drawing</b> or <b>Folder</b> (every DWG, opened read-only). It writes <code>YYC QA Report &lt;date&gt;.xlsx</code> next to the drawings: <b>Summary</b> shows each drawing with OK / FIX per check, <b>Details</b> says what was found and how to fix it, <b>Checks</b> explains each one. Repeat until every row is PASS. AUDIT, real linetypes and real circles are still checked by eye.</p>
+  </div>
   <div class="tools" data-step="s9"></div>
 </div>
 
@@ -530,6 +562,10 @@ Contract Number:  380
       <p>The zip uses <code>AR / EL / ME / ST</code>. The DWG filenames and layer names use the single letters <code>A / E / M / S</code>. Different systems, both correct in their own place — don't harmonise them.</p>
     </div>
 
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p><span class="cmd">YYCTRANSMIT</span> on the delivery folder makes every zip in one go, named exactly as above. It asks the stage and phase, and takes the discipline from each file name. Each zip carries the drawings, their xrefs (re-pathed, not bound), the CAA fonts and CAA.SHX, the CTB and a Transmittal.txt. Open one and compare it with a normal ETRANSMIT before the first real delivery.</p>
+    </div>
     <h3>eTransmit settings</h3>
     <pre>Command: <span class="k">ETRANSMIT</span>       <span class="c">run once per discipline</span>
   Package type:              .zip
@@ -541,6 +577,10 @@ Contract Number:  380
       <span class="lb">Also due</span>
       <p>PDFs of every sheet, plotted 1:1 at the sheet's own paper size, including professional seals, permits, and revision date and stage. <b>Do not password-protect the PDFs.</b></p>
       <p>Record deliverables — drawings, PDFs, specs, O&amp;M manuals — are due <b>within 45 calendar days of project completion</b>, and the record drawing process is supposed to be underway before substantial performance.</p>
+    </div>
+    <div class="box tip">
+      <span class="lb">With the toolkit</span>
+      <p><span class="cmd">YYCFILELIST</span> on the delivery folder writes <code>filelist.txt</code>, flags any badly named file, and writes <code>FileDescription_list.txt</code>: every drawing with its sheet title, grouped by discipline, ready to paste under the header block. Then <span class="cmd">YYCFILEDESC</span> combines everyone's lists (their .txt / .docx, or a folder of their DWGs) into the final File Description, Word and PDF, using your last one as the template. You still have to collect the consultants' lists.</p>
     </div>
     <div class="tools" data-step="s10"></div>
   </div>
@@ -567,28 +607,32 @@ Contract Number:  380
     </ol>
 
     <h3>The kit folder</h3>
-    <p>The kit folder is where the YYC reference files live. Usually it's <b>3 - Templates and References</b> in the package. The tools search it, subfolders included, so you pick each file from a list instead of browsing every time.</p>
+    <p>The kit folder is where the YYC reference files live. In the kit it's <b>3 - Kit folder</b>; its <code>What each file is.txt</code> lists everything. The tools search it, subfolders included, so you pick each file from a list instead of browsing every time.</p>
     <table>
       <thead><tr><th>File</th><th>Used by</th></tr></thead>
       <tbody>
         <tr><td><code>YYC Titleblock - Revit Export_A0.dwt</code></td><td><span class="cmd">YYCPAGESETUP</span>, the "YYC - Titleblock" page setup</td></tr>
-        <tr><td><code>A0_YYC_Titleblock.dwg</code></td><td><span class="cmd">YYCTITLEBLOCK</span>, the YYC titleblock resized to A0</td></tr>
-        <tr><td><code>04grid-dtb.dwg</code> · <code>20grid-itb.dwg</code></td><td><span class="cmd">YYCGRIDIN</span>. 04 = Domestic terminal, 20 = International. Keep "grid" in the file name so the tools find it.</td></tr>
-        <tr><td><code>YYC_Layer Reference.dwg</code></td><td><span class="cmd">YYCLAYEXPORT</span> and <span class="cmd">YYCQA</span>, the layer standard check</td></tr>
-        <tr><td><code>CAA.LIN</code></td><td><span class="cmd">YYCQA</span>, the linetype check</td></tr>
-        <tr><td>Layer map <code>.csv</code> (optional)</td><td><span class="cmd">YYCLAYMAP</span>, mappings you repeat on every sheet</td></tr>
-      </tbody>
+        <tr><td><code>YYC Titleblock - A0 (not in use yet).dwg</code></td><td><span class="cmd">YYCTITLEBLOCK</span>, which is parked</td></tr>
+        <tr><td><code>YYC Grid - 04 DTB Domestic.dwg</code> · <code>YYC Grid - 20 ITB International.dwg</code></td><td><span class="cmd">YYCGRIDIN</span>. 04 = Domestic terminal, 20 = International. Keep "grid" in the file name so the tools find it.</td></tr>
+        <tr><td><code>YYC Standard Layers - CADD Manual v6.2.csv</code></td><td><b>The</b> layer standard: 691 layers straight from the CADD Manual v6.2 tables, with <code>*-ANNO-*</code> layers for every discipline (colour, linetype, Default lineweight, plot, description). Layers that were only in the old files are left out; the check report in <b>4 - Reference</b> lists them. Used by <span class="cmd">YYCLAYXL</span>, <span class="cmd">YYCLAYMAP</span>, <span class="cmd">YYCLAYSYNC</span>, <span class="cmd">YYCLAYEXPORT</span> and <span class="cmd">YYCQA</span>.</td></tr>
+        <tr><td><code>YYC QA Report.xlsx</code></td><td>The QA report template. <span class="cmd">YYCQA</span> copies it next to the drawings and fills it in.</td></tr>
+        <tr><td><code>YYC Approved Layers.csv</code> · <code>YYC Approved Linetypes.lin</code></td><td>Layers YYC approved outside the manual, read together with the standard. Today: <code>A-ANNO-CONS-MTCH</code> (match lines, colour 8, Matchline linetype). Add a newly approved layer as one line.</td></tr>
+        <tr><td><code>YYC Layer Mapper.xlsx</code></td><td>The step 8 workbook. Keep one copy per project: its Library is your memory. <span class="cmd">YYCLAYXL</span> fills it with the drawing's layers; you pick each YYC layer from a dropdown; <span class="cmd">YYCLAYMAP</span> applies your choices and remembers them on the Library sheet for the next drawing.</td></tr>
+        <tr><td><code>CAA.LIN</code> · <code>CAA.SHX</code> · <code>caa_eng.shx</code> · <code>caa_arch.shx</code></td><td>From the YYC Standards package. CAA.LIN holds the S_ (site) and B_ (building) linetypes: <span class="cmd">YYCLAYSYNC</span> loads them, <span class="cmd">YYCQA</span> checks against them. Dashed, Hidden and Phantom come from AutoCAD's own acadiso.lin. The .shx files make the linetypes and the CAA fonts display; the tools add the kit folder to AutoCAD's support path so they're found. (CAA.shp is only the source of CAA.SHX, not needed.)</td></tr>
+        <tr><td><code>YYC Layer Reference - CADD Manual v6.2.dwg</code> · <code>.dws</code></td><td>Made by <span class="cmd">YYCMAKEREF</span> once per kit (in a blank drawing), from the CSV. The <span class="cmd">LAYTRANS</span> target.</td></tr>
+                
+              </tbody>
     </table>
 
     <h3>Profiles — one per terminal or area</h3>
-    <p>A profile holds one set of kit files plus the recorded move onto the YYC grid. Make one for <b>Domestic</b> (04 grid) and one for <b>International</b> (20 grid). There is one command for everything about profiles: <span class="cmd">YYCPROFILES</span>. It opens a window that lists each profile with its description, files and recorded move, with buttons to <b>Use</b>, add a <b>New</b> one, <b>Edit</b> or <b>Remove</b>. Every command prints <code>Profile: …</code> first, so you always know which one you're on.</p>
+    <p>A profile holds one set of kit files plus the recorded move onto the YYC grid. Make one for <b>Domestic</b> (04 grid) and one for <b>International</b> (20 grid). There is one command for everything about profiles: <span class="cmd">YYCPROFILES</span>. It opens a window: pick a profile on the left and change it on the right. Type the description and drawing number straight into the boxes. Click <b>…</b> next to any file to browse for it. Page setup, plot style, scales, schedule margin and fonts are behind <b>More settings…</b>; you set those once. <b>Grid move</b> picks whether the profile uses its own recorded move or the same move as another profile (same terminal, same export position). <b>Fill empty files from the kit folder</b> finds the rest. <b>Add</b> copies the selected profile, <b>Remove</b> takes one off the list, and <b>Save + use</b> switches to it. Every command prints <code>Profile: …</code> first, so you always know which one you're on.</p>
     <div class="box tip">
       <span class="lb">First time</span>
-      <p>1. Install the add-in. &nbsp;2. <span class="cmd">YYCSETUP</span>: name and description, pick the kit folder, pick the grid and titleblock, press Enter for the rest. &nbsp;3. On the first export: <span class="cmd">YYCGRIDIN</span> → <span class="cmd">YYCALIGNREC</span> (four clicks, answer <b>Main</b> for viewports) → <span class="cmd">YYCGRIDOUT</span>. &nbsp;4. Every other sheet from that terminal: <span class="cmd">YYCALIGNAPPLY</span>, no clicks.</p>
+      <p>1. Install the add-in. &nbsp;2. <span class="cmd">YYCSETUP</span> (opens the profiles window): click <b>…</b> by Kit folder, click <b>Fill empty files from the kit folder</b>, check the Grid, type a Description, click <b>Save + use</b>. &nbsp;3. On the first export: <span class="cmd">YYCGRIDIN</span> → <span class="cmd">YYCALIGNREC</span> (four clicks, answer <b>Main</b> for viewports) → <span class="cmd">YYCGRIDOUT</span>. &nbsp;4. Every other sheet from that terminal: <span class="cmd">YYCALIGNAPPLY</span>, no clicks.</p>
     </div>
     <div class="box tip">
       <span class="lb">Coming back — profiles already set up</span>
-      <p>1. Open the export. &nbsp;2. <span class="cmd">YYCPROFILES</span>: if the right profile has the <code>*</code>, close the window; if not, pick it and click <b>Use this profile</b>. &nbsp;3. Work down the run order below. <span class="cmd">YYCALIGNAPPLY</span> reuses the recorded move. &nbsp;A new terminal or area? In <span class="cmd">YYCPROFILES</span> click <b>New…</b>, pick its grid, and record its move once.</p>
+      <p>1. Open the export. &nbsp;2. <span class="cmd">YYCPROFILES</span>: if the right profile has the <code>*</code>, close the window; if not, pick it and click <b>Save + use this profile</b>. &nbsp;3. Work down the run order below. <span class="cmd">YYCALIGNAPPLY</span> reuses the recorded move. &nbsp;A new terminal or area? In <span class="cmd">YYCPROFILES</span> type a name in <b>New</b>, click <b>Add</b>, pick its grid with <b>…</b>, and record its move once with <span class="cmd">YYCALIGNREC</span>.</p>
     </div>
     <div class="box tip">
       <span class="lb">Shadi's note — how testing works</span>
@@ -603,19 +647,19 @@ Contract Number:  380
         <tr><td><b>0</b></td><td><span class="cmd">YYCPROFILES</span> → right profile (first time: <span class="cmd">YYCSETUP</span>)</td><td>Right grid, right files, right drawing number.</td></tr>
         <tr><td>1</td><td>Export from Revit · <span class="cmd">Manual</span></td><td></td></tr>
         <tr><td>2</td><td><span class="cmd">YYCRENAME</span> on the export folder</td><td>Before you open anything. Renaming later breaks xref paths.</td></tr>
-        <tr><td>3</td><td><span class="cmd">YYCTITLEBLOCK</span> (experimental) → <span class="cmd">YYCPAGESETUP</span></td><td>The YYC A0 titleblock and true A0 before anything moves.</td></tr>
+        <tr><td>3</td><td><span class="cmd">YYCPAGESETUP</span> (skip <span class="cmd">YYCTITLEBLOCK</span> for now, it's parked)</td><td>True A0, sheet on 0,0, before anything moves.</td></tr>
         <tr><td>4</td><td><span class="cmd">YYCSCHEDULES</span>: click each schedule viewport, then delete it when asked (<span class="cmd">CHSPACE</span> for anything left over)</td><td><b>Before the move</b>, so the schedules stay exactly where Revit put them on the sheet. The viewport is empty afterwards. Delete it when asked, or keep it and delete it later.</td></tr>
-        <tr><td>5</td><td><span class="cmd">YYCGRIDIN</span> → <span class="cmd">YYCALIGNREC</span> (first sheet) or <span class="cmd">YYCALIGNAPPLY</span> (the rest)</td><td>Moves model space onto the grid. <b>Don't MOVE by hand first</b>: the recording only captures its own clicks. The drawing viewport is turned to match automatically.</td></tr>
+        <tr><td>5</td><td><span class="cmd">YYCGRIDIN</span> → <span class="cmd">YYCALIGNREC</span> on the first sheet, <span class="cmd">YYCALIGNAPPLY</span> on every other one</td><td>Moves model space onto the grid. <b>Don't MOVE by hand first</b>: the recording only captures its own clicks. The drawing viewport is turned to match automatically.</td></tr>
         <tr><td>6</td><td><span class="cmd">YYCGRIDOUT</span> → <span class="cmd">YYCCLEAN</span> → <span class="cmd">YYCFIND0</span></td><td>Clears what the grid dragged in before you touch layers.</td></tr>
         <tr><td>7</td><td><span class="cmd">YYCVPLAYERS</span> → check the scale · <span class="cmd">Manual</span> → <span class="cmd">YYCVPLOCK</span></td><td>The rotation is already done by step 5. <b>Lock only after</b> the scale is right.</td></tr>
-        <tr><td>8</td><td><span class="cmd">YYCLWDEFAULT</span> → LAYTRANS · <span class="cmd">Manual</span> (or <span class="cmd">YYCLAYMAP</span>) → <span class="cmd">YYCLAYSYNC</span> → <span class="cmd">YYCLAYEXPORT</span> → <span class="cmd">SETBYLAYER</span> → <span class="cmd">YYCZERO</span> → LAYWALK · <span class="cmd">Manual</span></td><td>Lineweights first so LAYTRANS doesn't carry the Revit ones across.</td></tr>
+        <tr><td>8</td><td><span class="cmd">YYCLWDEFAULT</span> → <span class="cmd">YYCLAYXL</span> → pick the yellow column in Excel, save → <span class="cmd">YYCLAYMAP</span> → <span class="cmd">YYCLAYWALK</span> → <span class="cmd">YYCLAYSYNC</span> → <span class="cmd">SETBYLAYER</span> → <span class="cmd">YYCZERO</span> (blocks on 0? <span class="cmd">YYCPARK</span> → explode and fix → <span class="cmd">YYCUNPARK</span>) → LAYWALK to check contents · <span class="cmd">Manual</span></td><td>Lineweights first, so the Revit ones don't come across. Names before properties: LAYSYNC only fixes layers that are already YYC. LAYTRANS stays the fallback.</td></tr>
         <tr><td>9</td><td><span class="cmd">YYCCLEAN</span> → <span class="cmd">YYCFINAL</span> → <span class="cmd">YYCQA</span>, repeated until clean, then save</td><td>Clean before checking so the purge items don't show as flags.</td></tr>
-        <tr><td>10</td><td><span class="cmd">YYCFILELIST</span> → paste <code>FileDescription_list.txt</code> into the File Description → eTransmit · <span class="cmd">Manual</span></td><td>Sheet titles come straight from each titleblock.</td></tr>
+        <tr><td>10</td><td><span class="cmd">YYCFILELIST</span> → <span class="cmd">YYCFILEDESC</span> (add every consultant's list; Word + PDF) → check the header in Word → <span class="cmd">YYCTRANSMIT</span> (stage, phase) · <span class="cmd">Manual</span> check of one zip</td><td>Sheet titles come straight from each titleblock. One zip per discipline, the File Description PDF beside them.</td></tr>
       </tbody>
     </table>
     <div class="box tip">
       <span class="lb">Shadi's note — once the first sheet of a terminal works</span>
-      <p>Run the rest of that terminal's sheets through <span class="cmd">YYCBATCH</span>: <b>Titleblock → Pagesetup</b>, then <span class="cmd">YYCSCHEDULES</span> on each sheet, then <b>Align → Vplayers → Lwdefault → Laysync → Clean</b>. Finish with one batch of <b>Final → Qa</b> and read <code>YYC_QA_Summary.csv</code>.</p>
+      <p>Run the rest of that terminal's sheets through <span class="cmd">YYCBATCH</span>: <b>Pagesetup</b>, then <span class="cmd">YYCSCHEDULES</span> on each sheet, then <b>Align → Vplayers → Lwdefault → Laysync → Clean</b>. Finish with one batch of <b>Final → Qa</b> and read <code>YYC_QA_Summary.csv</code>.</p>
     </div>
     <div class="box std">
       <span class="lb">Ideas in the queue — not built yet</span>
@@ -672,7 +716,7 @@ Contract Number:  380
 
 <footer>
   <div>YYC CAD Export — internal working guide · DIALOG Design Technology</div>
-  <div class="rule">Sources: YYC CADD Manual v6.0 (2023-01-20) · Autodesk product documentation</div>
+  <div class="rule">Sources: YYC CADD Manual v6.2 · Autodesk product documentation</div>
 </footer>
 
 </div>
@@ -683,31 +727,38 @@ Contract Number:  380
    status: "untested" | "testing" | "tested" | "issue"
    ===================================================================== */
 const TOOLS = [
-  {cmd:"YYCSETUP",     step:"toolkit", from:"new",  status:"untested", date:"", note:"", does:"First-time setup of a profile: name, description, kit folder, then each kit file picked from a numbered list (or B to browse). Also reached from YYCPROFILES → Edit."},
-  {cmd:"YYCHELP",      step:"toolkit", from:"new", status:"untested", date:"", note:"", does:"Opens a window with every command in process order, AutoCAD ones included (CHSPACE, LAYTRANS…). Pick one, read what it does, click Run. There's also a YYC drop-down menu (type MENUBAR 1 to show the menu bar)."},
-  {cmd:"YYCRENAME",    step:"s2",  from:"new",  status:"untested", date:"", note:"", does:"Renames every DWG in a folder to drawing no. + sheet no. It pulls the sheet number out of Revit-style names (\"Project-Sheet - A102 - Floor Plan\" becomes 24C024A102.dwg) and strips periods, dashes and spaces. Shows a preview and asks before renaming."},
-  {cmd:"YYCPAGESETUP", step:"s3",  from:"FINAL-ImportPageSetup", status:"untested", date:"", note:"", does:"Reads the \"YYC - Titleblock\" page setup from your .dwt without opening it, then applies it to every layout, giving a true A0."},
-  {cmd:"YYCTITLEBLOCK",step:"s3",  from:"new",  status:"untested", date:"", note:"Experimental", does:"Swaps the Revit-exported titleblock for the YYC A0 titleblock. Fills its fields from the exported text (project name, sheet title, sheet no., drawn by, consultant project no.), plus the scale from the drawing viewport and the CAA number from the file name. Moves the revision rows off the no-plot layer they export on, and lists anything it couldn't place."},
-  {cmd:"YYCSCHEDULES", step:"s4",  from:"new",  status:"untested", date:"", note:"", does:"Automatic CHSPACE. On the layout, click a schedule viewport's frame. Everything it fully shows moves to paper space at the same size and spot, then it offers to delete the now-empty viewport. One viewport at a time, Enter to finish. It warns you before touching the drawing viewport, and objects crossing the viewport edge stay put."},
+  {cmd:"YYCSETUP",     step:"toolkit", from:"new",  status:"untested", date:"", note:"", does:"First time: opens the profiles window. Set the Kit folder, click Fill empty files from the kit folder, type a Description, Save + use. (The old command-line walkthrough is YYCSETUPCMD.)"},
+  {cmd:"YYCHELP",      step:"toolkit", from:"new", status:"untested", date:"", note:"", does:"Opens a window with every command in process order, AutoCAD ones included (CHSPACE, LAYTRANS…). Pick one, read what it does, click Run."},
+  {cmd:"YYCRENAME",    step:"s2",  from:"new",  status:"testing", date:"2026-10-01", note:"Works. Can't rename files open in AutoCAD, so run it from a blank drawing", does:"Renames every DWG in a folder to drawing no. + sheet no. It pulls the sheet number out of Revit-style names (\"Project-Sheet - A102 - Floor Plan\" becomes 24C024A102.dwg) and strips periods, dashes and spaces. Shows a preview and asks before renaming."},
+  {cmd:"YYCPAGESETUP", step:"s3",  from:"FINAL-ImportPageSetup", status:"testing", date:"2026-10-01", note:"Page setup works. Now also moves the sheet to 0,0 - to retest. Type RE (REGEN) if nothing looks different", does:"Reads the \"YYC - Titleblock\" page setup from your .dwt without opening it, then applies it to every layout, giving a true A0. It also moves each sheet so its lower-left corner sits on 0,0, using the exported titleblock as the reference."},
+  {cmd:"YYCTITLEBLOCK",step:"s3",  from:"new",  status:"issue", date:"2026-10-01", note:"Messes up the drawing - parked, don't use it yet. Fix later", does:"Swaps the Revit-exported titleblock for the YYC A0 titleblock. Fills its fields from the exported text (project name, sheet title, sheet no., drawn by, consultant project no.), plus the scale from the drawing viewport and the CAA number from the file name. Moves the revision rows off the no-plot layer they export on, and lists anything it couldn't place."},
+  {cmd:"YYCSCHEDULES", step:"s4",  from:"new",  status:"testing", date:"2026-10-01", note:"Text past the frame now included (crossing). 0.12.7: a plan block or long line that only overlaps the frame stays in model space. Retest", does:"Automatic CHSPACE. On the layout, click a schedule viewport's frame. Everything it touches, like a crossing window, moves to paper space at the same size and spot, then it offers to delete the now-empty viewport. One viewport at a time, Enter to finish. It warns you before touching the drawing viewport, and text running past the frame comes along too."},
   {cmd:"YYCGRIDIN",    step:"s5",  from:"new",  status:"untested", date:"", note:"", does:"Asks which grid (DTB, ITB, whatever is in your kit folder; Enter keeps the last one) and inserts it at 0,0,0 as one block. Same result as COPYBASE / PASTEBLOCK without opening the grid file. You still MOVE and ALIGN by hand."},
   {cmd:"YYCALIGNREC",  step:"s5",  from:"new",  status:"untested", date:"", note:"", does:"First sheet of a terminal: the same 4 clicks as ALIGN (never scales). Moves model space only, saves the move to the profile, and turns the drawing viewport so the sheet reads exactly as exported, project north up. Asks Main / All / None for the viewports and remembers the answer."},
-  {cmd:"YYCALIGNAPPLY",step:"s5",  from:"new",  status:"untested", date:"", note:"", does:"Every other sheet: applies the saved move and turns the viewport, with no clicks. Marks the drawing so it can never be moved twice. In YYCBATCH it's the Align step."},
-  {cmd:"YYCVPFOLLOW",  step:"s7",  from:"new",  status:"untested", date:"", note:"", does:"Turns the drawing viewport to match the recorded move. The align tools already do this, so you only need it if you skipped that step. Won't turn a viewport twice."},
-  {cmd:"YYCALIGNUSE",  step:"s5",  from:"new",  status:"untested", date:"", note:"", does:"Lets the current profile use a move recorded in another profile: one recording for the whole project, or one per area."},
-  {cmd:"YYCPROFILES",  step:"toolkit", from:"new", status:"untested", date:"", note:"", does:"The one command for profiles. A window lists each profile with its description, drawing number, grid, template, layer reference, kit folder and recorded move, with buttons to Use, add a New one, Edit or Remove."},
+  {cmd:"YYCALIGNAPPLY",step:"s5",  from:"new",  status:"testing", date:"2026-10-01", note:"Worked in model space; viewport turned only sometimes from the Model tab - fixed (each layout is activated first) and now sets the viewport UCS too. Retest", does:"Every other sheet: applies the saved move and turns the viewport, with no clicks. Marks the drawing so it can never be moved twice. In YYCBATCH it's the Align step."},
+  {cmd:"YYCPROFILES",  step:"toolkit", from:"new", status:"testing", date:"2026-10-01", note:"Rebuilt: edit in the window", does:"The one command for profiles. Pick a profile on the left; edit its description, drawing number, page setup, plot style, scales and every kit file right in the window (… buttons browse). Add copies a profile, Remove takes one off, Save + use switches to it."},
   {cmd:"YYCGRIDOUT",   step:"s6",  from:"new",  status:"untested", date:"", note:"", does:"Deletes the grid block and its definition after you've aligned."},
   {cmd:"YYCCLEAN",     step:"s6",  from:"Final-saveandclose", status:"untested", date:"", note:"", does:"Deletes empty text, purges everything 3 times for nested items, then audits with fix on. Doesn't save or close. To read the audit findings, type AUDIT once by hand."},
   {cmd:"YYCFIND0",     step:"s6",  from:"Final-Searchfor$0$", status:"untested", date:"", note:"", does:"Lists any layer, block, style or dictionary name containing $0$ (left over from binding)."},
-  {cmd:"YYCVPLAYERS",  step:"s7",  from:"WIP-MoveVPToLayer", status:"untested", date:"", note:"", does:"Puts each viewport on its own VIEWPORT1, VIEWPORT2… layer set to no-plot. Deletes Layout2 only if it's empty."},
+  {cmd:"YYCVPUCS",     step:"s7",  from:"new",  status:"testing", date:"2026-10-01", note:"First version turned the sheet's UCS instead of the viewport's - rewritten to step into the viewport. Retest. Fix an affected sheet with UCS W in paper space", does:"Gives each drawing viewport a UCS matching its turned view, like UCS OB + PLAN by hand: it steps into the viewport, sets its UCS, then returns to paper space and keeps the sheet at World. The align tools do this too; use it on drawings aligned earlier."},
+  {cmd:"YYCVPLAYERS",  step:"s7",  from:"WIP-MoveVPToLayer", status:"tested", date:"2026-10-01", note:"More VIEWPORT# layers than viewports (e.g. after YYCSCHEDULES deleted some)? Run YYCVPLAYERS again, then YYCCLEAN", does:"Puts each viewport on its own VIEWPORT1, VIEWPORT2… layer set to no-plot. Deletes Layout2 only if it's empty."},
   {cmd:"YYCVPLOCK",    step:"s7",  from:"Final-BatchDeleteLayoutLockViewports", status:"untested", date:"", note:"", does:"Locks every viewport and lists its scale. If a viewport has drifted off a standard scale (1:97.3 instead of 1:100), it offers to snap it back first. The standard scales are set per profile."},
   {cmd:"YYCLWDEFAULT", step:"s8",  from:"Final-BatchLinewights", status:"untested", date:"", note:"", does:"Sets every layer's lineweight to Default, fixing the LineWeight009 / 025 / 030 that Revit stamps on export."},
-  {cmd:"YYCLAYSYNC",   step:"s8",  from:"new",  status:"untested", date:"", note:"", does:"Sets the colour, linetype and lineweight of every standard layer (status modifiers included) to match the YYC Layer Reference, loading CAA linetypes if they're missing. Run it after LAYTRANS has the names right."},
-  {cmd:"YYCLAYMAP",    step:"s8",  from:"Final-SingleDrawingLayerFix", status:"untested", date:"", note:"", does:"Merges layers from a CSV (old,new per line), including objects in blocks and attributes. Doesn't need Express Tools. Use it alongside LAYTRANS for repeat mappings."},
-  {cmd:"YYCLAYEXPORT", step:"s8",  from:"new",  status:"untested", date:"", note:"", does:"Writes this drawing's layers, with object counts, to YYC_LayerExport.csv and flags NON-STANDARD layers and wrong properties against the YYC Layer Reference (status modifiers are accepted). In a batch it builds one sheet for the whole set, ready for the comparison workbook."},
+  {cmd:"YYCLAYSYNC",   step:"s8",  from:"new",  status:"untested", date:"", note:"", does:"Sets colour, linetype, Default lineweight and plot on every YYC layer to the standard CSV, loading CAA.LIN or acadiso linetypes as needed. Layers with a modifier (A-WALL-DEMO) only get lineweight and plot fixed; their colour and linetype stay as you set them, because the manual doesn't give any. -NPLT layers are set to no-plot. Layers with no description get the one from the standard (A-WALL-DEMO: Wall - Demolition). Lists any layer whose Revit dashed linetype it turned Continuous, so you can move callouts / match lines to the right layer."},
+  {cmd:"YYCLAYXL",     step:"s8",  from:"new",  status:"testing", date:"2026-10-01", note:"New in 0.11", does:"Sends every layer in the drawing to the Map sheet of YYC Layer Mapper.xlsx: object count, status (CHOOSE, REMEMBERED, AUTO - Revit number, OK), a suggested YYC layer, and a prefilled yellow YOUR CHOICE column with a dropdown of the full standard. Rows to decide come first, biggest first."},
+  {cmd:"YYCLAYWALK",   step:"s8",  from:"new",  status:"testing", date:"2026-10-01", note:"New in 0.11", does:"Walks what's left after YYCLAYMAP. A window lists every layer that still isn't YYC (biggest first) beside the full YYC list, filtered to the same discipline with the best guess picked. Show it isolates the layer and zooms to it; Enter brings you back. Map (or double-click) merges it now. Everything you map is remembered in the workbook's Library."},
+  {cmd:"YYCMAKEREF",   step:"toolkit", from:"new", status:"untested", date:"", note:"New in 0.12", does:"Once per kit, in a new empty drawing: creates every layer of the standard CSV with its colour, linetype, Default lineweight, plot and description, and saves YYC Layer Reference - CADD Manual v6.2.dwg plus a .dws copy in the kit folder. The LAYTRANS target then matches the tools exactly."},
+  {cmd:"YYCLAYMAPMAKE",step:"s8",  from:"new",  status:"untested", date:"", note:"", does:"Older route, replaced by YYCLAYXL. Writes (or adds to) YYC_LayerMap.csv from the open drawing: one row per non-YYC base name with a suggested YYC layer (nearest parent) or a blank to fill in. The automatic ones (YYC name + Revit number) are left out. Check it in Excel once; it grows into a library sheet by sheet. On the Departures export: 55 automatic, about 30 rows to decide."},
+  {cmd:"YYCLAYMAP",    step:"s8",  from:"Final-SingleDrawingLayerFix", status:"testing", date:"2026-10-01", note:"Reads the workbook now", does:"Applies your choices from the Layer Mapper workbook (or the old CSV if no workbook is set): renames, or merges into a layer that already exists. A YYC name plus a Revit number goes automatically (A-WALL-6 → A-WALL). Includes objects in blocks and attributes. Gives every target layer its YYC colour, linetype, lineweight, plot and description straight away. Saves every choice to the workbook's Library sheet so the next drawing comes back REMEMBERED."},
+  {cmd:"YYCLAYEXPORT", step:"s8",  from:"new",  status:"untested", date:"", note:"", does:"Writes this drawing's layers, with object counts, to YYC_LayerExport.csv and flags NON-STANDARD layers and wrong properties against the YYC standard (status modifiers are accepted). In a batch it builds one sheet for the whole set, ready for the comparison workbook."},
   {cmd:"YYCZERO",      step:"s8",  from:"Final-MoveLayer0ToAGL", status:"untested", date:"", note:"", does:"Reports what's on 0 / DEFPOINTS outside blocks and selects it in the current space. Never moves anything; you choose the layer."},
-  {cmd:"YYCQA",        step:"s9",  from:"Final-DrawingQACheck", status:"untested", date:"", note:"", does:"The §5.15 sweep as a report: purge, empty objects, 0/DEFPOINTS, BYLAYER, lineweights, dimension associativity, CAA.LIN, fonts, layer standard, viewports (layer, lock, standard scale, empty ones), anything left behind away from the YYC grid, page setup, $0$, xrefs. Writes <drawing>_YYC-QA.txt plus a one-line-per-drawing YYC_QA_Summary.csv."},
+  {cmd:"YYCPARK",      step:"s8",  from:"new",  status:"untested", date:"", note:"New in 0.12.6", does:"After YYCZERO selects what's on layer 0: moves each selected object (usually blocks) to the left of the drawing, each in its own spot with a 200000 mm gap, so you can explode and check it on its own. The spots are saved in the drawing."},
+  {cmd:"YYCUNPARK",    step:"s8",  from:"new",  status:"untested", date:"", note:"New in 0.12.6", does:"Moves everything in the parked spots back by exactly the distance it was moved, exploded pieces included, then forgets the spots."},
+  {cmd:"YYCQA",        step:"s9",  from:"Final-DrawingQACheck", status:"testing", date:"2026-10-01", note:"Rebuilt in 0.13: this drawing or a whole folder, report in Excel. Retest", does:"The §5.15 sweep, report only - nothing in the drawings changes. Asks: This drawing, or a Folder (every DWG opened read-only, nothing saved). Writes YYC QA Report <date>.xlsx next to the drawings from the kit template: Summary (one row per drawing, OK / FIX / skipped per check, a count to fix, four by-eye columns to tick), Details (what was found and how to fix, per check - filter Status = FIX for your to-do list) and Checks (what each check means, what good looks like, the manual section). Also a text report per drawing."},
   {cmd:"YYCFINAL",     step:"s9",  from:"new",  status:"untested", date:"", note:"", does:"Locks viewports, makes the main layout the active tab, and zooms extents in model and paper space so anything stranded shows up."},
-  {cmd:"YYCFILELIST",  step:"s10", from:"new",  status:"untested", date:"", note:"", does:"Writes filelist.txt, flags badly named files, and writes FileDescription_list.txt: every drawing with its sheet title read from its YYC titleblock, grouped by discipline, ready to paste into the File Description."},
+  {cmd:"YYCFILELIST",  step:"s10", from:"new",  status:"testing", date:"2026-10-01", note:"filelist.txt works. Titles came out NOT FOUND (they were only read from the YYC titleblock) - now also read from the Revit titleblock block name (checked against the Departures export: DEPARTURES OVERALL FLOOR PLAN). 0.11.2: falls back to the view-title block, and reads drawings that are open. Retest", does:"Writes filelist.txt, flags badly named files, and writes FileDescription_list.txt: every drawing with its sheet title (read from the YYC titleblock, or from the Revit titleblock\'s block name), grouped by discipline, ready to paste into the File Description."},
+  {cmd:"YYCFILEDESC",  step:"s10", from:"new",  status:"untested", date:"", note:"New in 0.13.1", does:"The final File Description for the whole delivery, Word + PDF. Add each consultant's list - their .txt, .docx or .csv (any line like name.dwg - TITLE), a FileDescription_list.txt from YYCFILELIST, or just a folder of their DWGs. Uses your last File Description .docx as the template: header kept, today's date in, file list replaced by the combined one, grouped A / S / M / E then the rest. Add lists one File at a time, or a Lists folder (every .txt / .docx / .csv in it). Run it again whenever another consultant sends theirs. Saves <drawing no>_File Description <date>.docx and .pdf, lists any drawing without a title, and checks the delivery folder: DWGs with no description yet, and lines with no DWG."},
+  {cmd:"YYCTRANSMIT",  step:"s10", from:"new",  status:"untested", date:"", note:"New in 0.13.2", does:"One zip per discipline from the delivery folder, named to the convention: <drawing no>_<stage>_<phase>_<discipline>.zip (24C024_Record_PH1_AR.zip). The discipline comes from the letter after the drawing number (A, S, M, E -> AR, ST, ME, EL; asks for any other). Asks the stage (BID / IFC / Record) and phase. Each zip gets the drawings, their xrefs re-pathed beside them (not bound), the fonts the text styles use, CAA.SHX, the CTB, and a Transmittal.txt. Originals are not touched."},
   {cmd:"YYCBATCH",     step:"toolkit", from:"new", status:"untested", date:"", note:"", does:"Runs a sequence you pick (e.g. Pagesetup > Lwdefault > Clean > Qa) over a whole folder. Opens each drawing through ActiveX with no script file, backs up first, saves as AutoCAD 2018 and logs each file. A check-only run (Qa, Export, Dollar0) doesn't save anything."}
 ];
 const STEPNAME={s4:"4",s2:"2",s3:"3",s5:"5",s6:"6",s7:"7",s8:"8",s9:"9",s10:"10",toolkit:"Any"};
