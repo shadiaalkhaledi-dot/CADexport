@@ -14,7 +14,6 @@
 ;;;
 ;;; Commands, in process order
 ;;;   Step 2   YYCRENAME      Rename exported DWGs in a folder to <DwgNo><Sheet>.dwg
-;;;   Step 3   YYCTITLEBLOCK  (experimental) Swap the exported titleblock for the YYC A0 one
 ;;;   Step 3   YYCPAGESETUP   Copy "YYC - Titleblock" page setup from the .dwt to all layouts
 ;;;   Step 4   YYCSCHEDULES   Pick a viewport: its contents go to paper space, then delete it
 ;;;   Step 5   YYCGRIDIN      Insert the YYC grid (04grid-dtb.dwg) as a block at 0,0,0
@@ -49,7 +48,7 @@
 ;;; ===========================================================================
 
 (vl-load-com)
-(setq *yyc-version* "0.13.3")
+(setq *yyc-version* "1.1")
 (setq *yyc-modifiers* '("DEMO" "EXST" "FUTR" "MOVE" "NEWW" "NICN" "NPLT" "PRPS" "RELO" "TEMP"
                         "ABDN" "RMVD" "PATT" "SYMB" "TEXT" "IDEN" "EQPM" "ELEV"))
 
@@ -62,7 +61,7 @@
 
 ;; Settings live in named PROFILES (e.g. "24C024 DTB", "ITB"), one set of kit
 ;; files per project or area. Profile / Profiles / ToolsPath are shared.
-(setq *yyc-keys* '("Description" "Scales" "SchedMargin" "StdCSV" "LayerBook" "Kit" "Template" "Titleblock" "PageSetup" "Grid" "GridBlock" "LayerRef" "LinFile" "LayerMap" "QABook" "FDTemplate" "DwgNo" "CTB" "Fonts"))
+(setq *yyc-keys* '("Description" "Scales" "SchedMargin" "StdCSV" "LayerBook" "Kit" "Template" "PageSetup" "Grid" "GridBlock" "LayerRef" "LinFile" "LayerMap" "QABook" "FDTemplate" "DwgNo" "CTB" "Fonts"))
 
 (defun yyc:profile ( / p) (setq p (getenv "YYC_Profile")) (if (and p (/= p "")) p "Default"))
 (defun yyc:pkey (key profile)
@@ -159,11 +158,10 @@
 (setq *yyc-file-kinds*
   '(("Template" "Titleblock template (.dwt)" ("*.dwt") "dwt")
     ("Grid"     "Grid drawing (04 DTB domestic, 20 ITB international ...)" ("*grid*.dwg") "dwg")
-    ("Titleblock" "YYC A0 titleblock drawing" ("*titleblock*.dwg") "dwg")
     ("StdCSV"   "YYC standard layer list (YYC_Standard_Layers.csv, from the CADD Manual)" ("*Standard*Layer*.csv") "csv")
     ("LayerBook" "YYC Layer Mapper workbook (.xlsx)" ("*Layer*Mapper*.xlsx") "xlsx")
     ("QABook"   "YYC QA Report template (.xlsx)" ("*QA*Report*.xlsx") "xlsx")
-    ("FDTemplate" "File Description template (your last one, .docx)" ("*File Description*.docx") "docx")
+    ("FDTemplate" "File Description template (.docx)" ("*File Description*.docx") "docx")
     ("LayerRef" "YYC Layer Reference drawing (used if there's no standard CSV)" ("*layer*.dwg" "*.dws") "dwg")
     ("LinFile"  "CAA linetype file" ("*.lin") "lin")
     ("LayerMap" "Layer map CSV (old,new) - optional, YYCLAYMAPMAKE writes one" ("*LayerMap*.csv" "*Layer*Map*.csv") "csv")))
@@ -395,15 +393,13 @@
 ;;; ---------------------------------------------------------------------------
 
 ;; Move everything in a layout so the sheet's lower-left corner sits on 0,0.
-;; The corner is taken from the exported titleblock block. The YYC A0 titleblock
-;; is built on 0,0 already, so a layout that has it is left alone.
+;; The corner is taken from the exported titleblock block.
 (defun yyc:sheet-to-origin (lay / tb lo hi dx dy mat n)
   (vlax-for o (vla-get-Block lay)
     (if (and (not tb) (= (vla-get-ObjectName o) "AcDbBlockReference") (wcmatch (strcase (vla-get-Name o)) "*TITLEBLOCK*"))
       (setq tb o)))
   (cond
     ((not tb) (yyc:msg (strcat "  " (vla-get-Name lay) ": no titleblock block found - sheet position left as it is.")))
-    ((= (strcase (vla-get-Name tb)) "YYC-A0-TITLEBLOCK") nil)
     ((yyc:err-p (vl-catch-all-apply 'vla-GetBoundingBox (list tb 'lo 'hi))) nil)
     (T
      (setq lo (vlax-safearray->list lo) dx (- (car lo)) dy (- (cadr lo)))
@@ -483,186 +479,6 @@
 )
 (defun c:YYCGRIDOUT () (yyc:run 'yyc:t-gridout))
 
-;;; ---------------------------------------------------------------------------
-;;; Titleblock swap (experimental) - replace the Revit-exported titleblock with
-;;; the YYC A0 titleblock and carry the exported text into its attributes.
-;;; The YYC titleblock drawing is read with ObjectDBX: everything in its first
-;;; layout (inside the sheet) becomes block YYC-A0-TITLEBLOCK, inserted at 0,0.
-;;; ---------------------------------------------------------------------------
-
-(setq *yyc-tb-fields* '(1060.0 0.0 1175.0 160.0))   ; where the exported title fields sit
-(setq *yyc-tb-revs*   '(1065.0 600.0 1190.0 672.0)) ; exported revision table
-(setq *yyc-tb-sheet*  '(-20.0 -20.0 1210.0 870.0))  ; anything outside is not copied
-
-(defun yyc:in-box (x y box) (and (>= x (nth 0 box)) (>= y (nth 1 box)) (<= x (nth 2 box)) (<= y (nth 3 box))))
-;; whole object inside the box (objects without extents count as inside)
-(defun yyc:obj-in-box (o box / lo hi)
-  (if (yyc:err-p (vl-catch-all-apply 'vla-GetBoundingBox (list o 'lo 'hi)))
-    T
-    (progn (setq lo (vlax-safearray->list lo) hi (vlax-safearray->list hi))
-           (and (yyc:in-box (car lo) (cadr lo) box) (yyc:in-box (car hi) (cadr hi) box))))
-)
-(defun yyc:pt (o) (vlax-safearray->list (vlax-variant-value (vla-get-InsertionPoint o))))
-
-;; plain text out of MTEXT formatting codes
-(defun yyc:plain (s / out i ch nx)
-  (setq out "" i 1)
-  (while (<= i (strlen s))
-    (setq ch (substr s i 1))
-    (cond
-      ((member ch '("{" "}")) (setq i (1+ i)))
-      ((= ch "\\")
-       (setq nx (substr s (1+ i) 1))
-       (cond
-         ((member nx '("P" "~")) (setq out (strcat out " ") i (+ i 2)))
-         ((member nx '("\\" "{" "}")) (setq out (strcat out nx) i (+ i 2)))
-         ((member nx '("L" "l" "O" "o" "K" "k")) (setq i (+ i 2)))
-         (T (setq i (+ i 2)) (while (and (<= i (strlen s)) (/= (substr s i 1) ";")) (setq i (1+ i))) (setq i (1+ i))))
-      )
-      (T (setq out (strcat out ch) i (1+ i)))
-    )
-  )
-  (while (vl-string-search "  " out) (setq out (vl-string-subst " " "  " out)))
-  (yyc:trim out)
-)
-
-(defun yyc:tb-def (doc / name blk path dbx lay objs arr r)
-  (setq name "YYC-A0-TITLEBLOCK")
-  (cond
-    ((setq blk (yyc:try 'vla-Item (list (vla-get-Blocks doc) name))) blk)
-    ((not (setq path (yyc:need-file "Titleblock" "Select the YYC A0 titleblock drawing" "dwg"))) nil)
-    ((not (setq dbx (yyc:dbx-open path))) nil)
-    (T
-     (setq lay (car (yyc:paper-layouts dbx)))
-     (vlax-for o (vla-get-Block lay)
-       (if (and (/= (vla-get-ObjectName o) "AcDbViewport") (yyc:obj-in-box o *yyc-tb-sheet*))
-         (setq objs (cons o objs))))
-     (setq blk (vla-Add (vla-get-Blocks doc) (vlax-3d-point 0 0 0) name))
-     (setq arr (vlax-make-safearray vlax-vbObject (cons 0 (1- (length objs)))))
-     (vlax-safearray-fill arr objs)
-     (setq r (vl-catch-all-apply 'vla-CopyObjects (list dbx arr blk)))
-     (if (yyc:err-p r)
-       (progn   ; retry without OLE objects (logos) if they refuse to copy
-         (setq objs (vl-remove-if '(lambda (o) (= (vla-get-ObjectName o) "AcDbOle2Frame")) objs))
-         (setq arr (vlax-make-safearray vlax-vbObject (cons 0 (1- (length objs)))))
-         (vlax-safearray-fill arr objs)
-         (setq r (vl-catch-all-apply 'vla-CopyObjects (list dbx arr blk)))
-         (if (not (yyc:err-p r)) (yyc:msg "Note: the OLE logo could not be copied - paste it by hand once."))))
-     (yyc:dbx-close dbx)
-     (if (yyc:err-p r) (progn (yyc:msg (strcat "ERROR copying the titleblock: " (vl-catch-all-error-message r))) nil) blk))
-  )
-)
-
-;; exported title text in one layout, merged into lines: ((x y "text" objs) ...)
-(defun yyc:tb-lines (lay / items lines cur)
-  (vlax-for o (vla-get-Block lay)
-    (if (and (yyc:text-p o) (= (strcase (vla-get-Layer o)) (strcase (yyc:get "TBLayer" "G-ANNO-TTLB"))))
-      (setq items (cons (list (car (yyc:pt o)) (cadr (yyc:pt o)) (yyc:plain (vla-get-TextString o)) o) items))))
-  (setq items (vl-remove-if-not '(lambda (i) (yyc:in-box (car i) (cadr i) *yyc-tb-fields*)) items))
-  (setq items (vl-sort items '(lambda (a b) (if (> (abs (- (cadr a) (cadr b))) 2.5) (> (cadr a) (cadr b)) (< (car a) (car b))))))
-  (foreach i items
-    (if (and cur (<= (abs (- (cadr i) (cadr cur))) 2.5))
-      (setq cur (list (car cur) (cadr cur) (yyc:trim (strcat (caddr cur) " " (caddr i))) (cons (cadddr i) (nth 3 cur))))
-      (progn (if cur (setq lines (cons cur lines))) (setq cur (list (car i) (cadr i) (caddr i) (list (cadddr i))))))
-  )
-  (if cur (setq lines (cons cur lines)))
-  (vl-remove-if '(lambda (l) (= (caddr l) "")) (reverse lines))
-)
-
-;; match exported lines to attributes: nearest first (rows count more than columns),
-;; then numbered groups (PROJ-NAME-1..3, SHEET-TITLE-1..3) take their lines top-down
-(defun yyc:tb-match (atts lines / pairs used-a used-l res base mem ys cands)
-  (foreach a atts
-    (foreach l lines
-      (setq pairs (cons (list (+ (* 0.25 (abs (- (cadr a) (car l)))) (abs (- (caddr a) (cadr l)))) a l) pairs))))
-  (foreach p (vl-sort pairs '(lambda (x y) (< (car x) (car y))))
-    (if (and (< (car p) 9.0) (not (member (cadr p) used-a)) (not (member (caddr p) used-l)))
-      (setq used-a (cons (cadr p) used-a) used-l (cons (caddr p) used-l) res (cons (cons (cadr p) (caddr p)) res))))
-  (foreach base '("PROJ-NAME-" "SHEET-TITLE-")
-    (setq mem (vl-sort (vl-remove-if-not '(lambda (a) (wcmatch (strcase (car a)) (strcat base "#"))) atts)
-                       '(lambda (x y) (< (car x) (car y)))))
-    (if mem
-      (progn
-        (setq ys (mapcar 'caddr mem))
-        (setq cands (vl-remove-if-not
-                      '(lambda (l) (and (<= (cadr l) (+ (apply 'max ys) 8)) (>= (cadr l) (- (apply 'min ys) 8))
-                                        (<= (abs (- (car l) (cadr (car mem)))) 40)))
-                      lines))
-        (setq cands (vl-sort cands '(lambda (x y) (> (cadr x) (cadr y)))))
-        (setq res (vl-remove-if '(lambda (r) (or (member (car r) mem) (member (cdr r) cands))) res))
-        (setq ys mem)
-        (foreach l cands (if ys (setq res (cons (cons (car ys) l) res) ys (cdr ys))))
-      )
-    )
-  )
-  res
-)
-
-(defun yyc:t-titleblock (doc / blk n ref atts lines m old revs main sc dn prompts)
-  (if (setq blk (yyc:tb-def doc))
-    (progn
-      (setq n 0)
-      (foreach pr (yyc:vp-list doc)   ; main viewport = the biggest one
-        (if (or (not main) (> (* (vla-get-Width (cdr pr)) (vla-get-Height (cdr pr))) (* (vla-get-Width (cdr main)) (vla-get-Height (cdr main)))))
-          (setq main pr)))
-      (vlax-for o blk
-        (if (= (vla-get-ObjectName o) "AcDbAttributeDefinition")
-          (setq prompts (cons (cons (strcase (vla-get-TagString o)) (strcase (vla-get-PromptString o))) prompts))))
-      (foreach lay (yyc:paper-layouts doc)
-        (setq old nil revs nil)
-        (vlax-for o (vla-get-Block lay)
-          (cond
-            ((and (= (vla-get-ObjectName o) "AcDbBlockReference") (wcmatch (strcase (vla-get-Name o)) "*TITLEBLOCK*")
-                  (/= (strcase (vla-get-Name o)) "YYC-A0-TITLEBLOCK"))
-             (setq old (cons o old)))
-            ((and (yyc:text-p o) (apply 'yyc:in-box (append (yyc:first-n (yyc:pt o) 2) (list *yyc-tb-revs*))))
-             (setq revs (cons o revs)))))
-        (if (not old)
-          (yyc:msg (strcat "  " (vla-get-Name lay) ": no exported titleblock found - skipped."))
-          (progn
-            (setq lines (yyc:tb-lines lay))
-            (setq ref (vla-InsertBlock (vla-get-Block lay) (vlax-3d-point 0 0 0) "YYC-A0-TITLEBLOCK" 1.0 1.0 1.0 0.0))
-            (yyc:try 'vla-put-Layer (list ref "0"))
-            (setq atts (mapcar '(lambda (a) (list (vla-get-TagString a) (car (yyc:pt a)) (cadr (yyc:pt a)) a))
-                               (if (= (vla-get-HasAttributes ref) :vlax-true) (vlax-invoke ref 'GetAttributes))))
-            (yyc:msg (strcat "  " (vla-get-Name lay) ":"))
-            (foreach m (yyc:tb-match atts lines)
-              (vla-put-TextString (nth 3 (car m)) (caddr (cdr m)))
-              (foreach t2 (nth 3 (cdr m)) (vl-catch-all-apply 'vla-Delete (list t2)))
-              (setq lines (vl-remove (cdr m) lines))
-              (yyc:msg (strcat "    " (car (car m)) "  <-  " (caddr (cdr m))))
-            )
-            ;; fields the export doesn't carry
-            (foreach a atts
-              (cond
-                ((= (cdr (assoc (strcase (car a)) prompts)) "ENTER CADD FILE NUMBER")
-                 (setq dn (yyc:dbase doc))
-                 (vla-put-TextString (nth 3 a) (if (wcmatch (strcase dn) (strcat (strcase (yyc:get "DwgNo" "")) "*")) dn (yyc:get "DwgNo" "-")))
-                 (yyc:msg (strcat "    " (car a) "  <-  " (vla-get-TextString (nth 3 a)) "  (drawing file name)")))
-                ((and (= (strcase (car a)) "SCALE") main)
-                 (vla-put-TextString (nth 3 a) (yyc:scale-text (cdr main)))
-                 (yyc:msg (strcat "    SCALE  <-  " (yyc:scale-text (cdr main)) "  (main viewport)")))))
-            (foreach l lines (yyc:msg (strcat "    left as exported text (no matching field): " (caddr l))))
-            ;; revision table: drop the exported headings (YYC's are in the titleblock), keep the rows plottable
-            (foreach r revs
-              (if (member (strcase (yyc:plain (vla-get-TextString r))) '("NO" "NO." "DATE" "ISSUED FOR" "BY"))
-                (vl-catch-all-apply 'vla-Delete (list r))
-                (yyc:try 'vla-put-Layer (list r "T-TTLB-REVS"))))
-            (if revs (yyc:msg "    revision rows moved to T-TTLB-REVS (they were exported on a no-plot layer)"))
-            (foreach o old (vl-catch-all-apply 'vla-Delete (list o)))
-            (setq n (1+ n))
-          )
-        )
-      )
-      (yyc:msg (strcat "YYC A0 titleblock placed on " (itoa n) " layout(s). Check each field; edit any with ATTEDIT (double-click the titleblock)."))
-      (yyc:msg "Then YYCCLEAN to purge the old exported titleblock block.")
-    )
-  )
-)
-(defun c:YYCTITLEBLOCK ()
-  (yyc:msg "YYCTITLEBLOCK is parked - it isn't ready yet. Undo with U if you ran it by mistake.")
-  (if (yyc:yes "Run it anyway (for testing only)?" "No") (yyc:run 'yyc:t-titleblock))
-  (princ))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Step 4 - YYCSCHEDULES: pick a viewport, everything it shows moves to paper
@@ -1172,7 +988,7 @@
     ("Scales"      "Viewport scales" "1:1,1:2,1:5,1:10,1:20,1:25,1:50,1:75,1:100,1:125,1:200,1:250,1:500,1:1000")
     ("SchedMargin" "Schedule margin (mm)" "5")
     ("Fonts"       "Allowed fonts" "caa_eng.shx,caa_arch.shx,CAA.SHX")))
-;; only the files you need. Titleblock (YYCTITLEBLOCK is parked), Layer Reference
+;; only the files you need. Layer Reference
 ;; (only used when there's no standard CSV) and the old layer map CSV still work
 ;; if set, but aren't shown.
 (setq *yyc-pfiles*
@@ -3003,7 +2819,47 @@
   (if (= (substr b 1 (strlen dwgno)) (strcase dwgno)) (substr b (1+ (strlen dwgno)) 1) (substr b 1 1))
 )
 
-(defun c:YYCFILEDESC ( / dwgno tpl all src k items d n lst order out wd docs doc paras i p start rng txt grp cur stamp pdf miss dwgs nodesc nodwg)
+;; header values from a delivered drawing's titleblock: the value is the bigger text just
+;; under each label (PROJECT 4391, CONTRACT NO. 551, CAA DRAWING NUMBER 24Z017)
+(defun yyc:tb-texts (dbx / res nm s ip)
+  (foreach lay (yyc:paper-layouts dbx)
+    (vlax-for o (vla-get-Block lay)
+      (if (and (not res) (= (vla-get-ObjectName o) "AcDbBlockReference")
+               (wcmatch (strcase (setq nm (vla-get-Name o))) "*TITLEBLOCK*"))
+        (progn
+          (vlax-for e (vla-Item (vla-get-Blocks dbx) nm)
+            (if (member (vla-get-ObjectName e) '("AcDbText" "AcDbMText"))
+              (progn
+                (setq s (yyc:trim (vl-string-trim "{}" (vla-get-TextString e))) ip (vlax-get e 'InsertionPoint))
+                (setq res (cons (list (strcase s) (car ip) (cadr ip) (vla-get-Height e)) res)))))
+          (if (= (vla-get-HasAttributes o) :vlax-true)
+            (foreach a (vlax-invoke o 'GetAttributes)
+              (setq ip (vlax-get a 'InsertionPoint))
+              (setq res (cons (list (strcase (yyc:trim (vla-get-TextString a))) (car ip) (cadr ip) (vla-get-Height a)) res))))))))
+  res
+)
+(defun yyc:tb-value (texts label / best d)
+  (foreach lb texts
+    (if (= (car lb) label)
+      (foreach v texts
+        (if (and (/= (car v) "") (> (nth 3 v) (nth 3 lb))
+                 (< (nth 2 v) (nth 2 lb)) (< (- (nth 2 lb) (nth 2 v)) 12.0) (< (abs (- (nth 1 v) (nth 1 lb))) 25.0))
+          (progn (setq d (distance (cdr lb) (cdr v)))
+                 (if (or (not best) (< d (car best))) (setq best (list d (car v)))))))))
+  (cadr best)
+)
+(defun yyc:tb-fields (path / dbx od tx res v)
+  (setq od (yyc:open-doc path))
+  (if (setq dbx (if od od (yyc:dbx-open path)))
+    (progn
+      (setq tx (yyc:tb-texts dbx))
+      (if (not od) (yyc:dbx-close dbx))
+      (foreach k '(("PROJECT" . "[Firm project number]") ("CONTRACT NO." . "[Contract number]") ("CAA DRAWING NUMBER" . "[YYC drawing number]"))
+        (if (setq v (yyc:tb-value tx (car k))) (setq res (cons (cons (cdr k) v) res))))))
+  res
+)
+
+(defun c:YYCFILEDESC ( / dwgno tpl all src k items d n lst order out wd docs doc paras i p start rng txt grp cur stamp pdf miss dwgs nodesc nodwg tbf)
   (setq dwgno (yyc:get "DwgNo" "24C024"))
   (yyc:msg "Combine every consultant's file list into one File Description (Word + PDF).")
   ;; 1. sources
@@ -3047,7 +2903,7 @@
               (cond ((/= ia ib) (< ia ib)) ((/= da db) (< da db)) (T (< (car a) (car b)))))))
   (cond
     ((not lst) (yyc:msg "No drawings found in those lists."))
-    ((not (setq tpl (yyc:need-file "FDTemplate" "Select your last File Description (.docx) - the header is reused" "docx"))) nil)
+    ((not (setq tpl (yyc:need-file "FDTemplate" "File Description template (.docx): the kit's template, or your last File Description" "docx"))) nil)
     ((not (setq wd (yyc:fd-word))) (yyc:msg "Word could not be started on this machine."))
     ((not (setq out (yyc:browse-folder "Where to save the File Description (the delivery folder)"))) nil)
     (T
@@ -3059,6 +2915,16 @@
      (vl-catch-all-apply 'vlax-invoke-method
        (list (vlax-get-property rng 'Find) 'Execute "[0-9]{4}/[0-9]{2}/[0-9]{2}" :vlax-false :vlax-false :vlax-true
              :vlax-false :vlax-false :vlax-true 0 :vlax-false stamp 1))
+     ;; header numbers from a delivered drawing's titleblock (project, contract, CAA drawing no.)
+     (setq dwgs (vl-remove-if-not '(lambda (x) (wcmatch (strcase x) (strcat (strcase dwgno) "*"))) (yyc:dwgs-in out)))
+     (setq tbf (if dwgs (yyc:tb-fields (strcat out "\\" (car dwgs)))))
+     (if (not (assoc "[YYC drawing number]" tbf)) (setq tbf (cons (cons "[YYC drawing number]" dwgno) tbf)))
+     (if tbf (yyc:msg (strcat "  From the titleblock of " (if dwgs (car dwgs) "the profile") ": "
+                              (yyc:join (mapcar '(lambda (f) (strcat (vl-string-trim "[]" (car f)) " " (cdr f))) tbf) ", "))))
+     (foreach f tbf
+       (vl-catch-all-apply 'vlax-invoke-method
+         (list (vlax-get-property (vlax-get-property doc 'Content) 'Find) 'Execute (car f) :vlax-false :vlax-false :vlax-false
+               :vlax-false :vlax-false :vlax-true 0 :vlax-false (cdr f) 2)))
      ;; find "File Description:" and replace everything after it
      (setq paras (vlax-get-property doc 'Paragraphs) n (vlax-get-property paras 'Count) i 1 start nil)
      (while (and (<= i n) (not start))
@@ -3098,7 +2964,11 @@
      (if (and dwgs nodwg) (yyc:msg (strcat "  Listed, but no DWG with that name in the delivery folder: " (yyc:join (mapcar 'cadr nodwg) ", "))))
      (if (and dwgs (not nodesc) (not nodwg)) (yyc:msg "  Every DWG in the delivery folder has a line, and every line has a DWG."))
      (if miss (yyc:msg (strcat "  No title for: " (yyc:join (mapcar 'cadr miss) ", ") " - type them in Word, then save the PDF again.")))
-     (yyc:msg "Check the header in Word (project, phase, stage) - it comes from your template."))
+     (if (vl-string-search "[" (vlax-get-property (vlax-get-property doc 'Content) 'Text))
+       (progn
+         (yyc:msg "The header still has [bracketed] fields - fill them in Word, save, and Save As PDF again.")
+         (yyc:msg "Tip: fill them once in the kit's \"YYC File Description - Template.docx\" and they're done for every delivery."))
+       (yyc:msg "Check the header in Word (project, phase, stage) - it comes from your template.")))
   )
   (princ)
 )
@@ -3241,7 +3111,6 @@
    ("Setup" "YYCPROFILES"   "Profiles window: pick a profile and change its description, files and settings right in the window (... buttons browse). Add, remove, Save + use.")
    ("2 Name" "YYCRENAME"    "Rename every DWG in a folder to drawing no. + sheet no. Shows a preview first. Do it before opening the files.")
    ("3 Sheet" "YYCPAGESETUP" "Apply the YYC - Titleblock page setup from the template to every layout, giving a true A0, and moves each sheet so its lower-left corner sits on 0,0. If nothing looks different afterwards, type RE (REGEN).")
-   ("3 Sheet" "YYCTITLEBLOCK" "PARKED - not ready, don't use yet. Swap the exported titleblock for the YYC A0 titleblock and carry the title text into its fields.")
    ("4 Sheet" "YYCSCHEDULES" "Click a schedule viewport: everything it touches (crossing) moves to paper space at the same size and spot, then it offers to delete the empty viewport. One at a time. Do this before moving the plan.")
    ("4 Sheet" "CHSPACE"     "(AutoCAD) For anything YYCSCHEDULES can't take, e.g. objects crossing a viewport edge.")
    ("5 Grid" "YYCGRIDIN"    "Insert the YYC grid for this area at 0,0,0 as one block. You pick which grid.")
@@ -3365,7 +3234,7 @@
 ;;; ---------------------------------------------------------------------------
 
 (setq *yyc-batch-cmds*
-  '(("Titleblock" . yyc:t-titleblock) ("Align" . yyc:t-alignapply) ("Pagesetup" . yyc:t-pagesetup) ("Vplayers" . yyc:t-vplayers) ("Lwdefault" . yyc:t-lwdefault) ("Laysync" . yyc:t-laysync)
+  '(("Align" . yyc:t-alignapply) ("Pagesetup" . yyc:t-pagesetup) ("Vplayers" . yyc:t-vplayers) ("Lwdefault" . yyc:t-lwdefault) ("Laysync" . yyc:t-laysync)
     ("Mapcsv" . yyc:t-laymap) ("Clean" . yyc:t-clean) ("Dollar0" . yyc:t-find0)
     ("Export" . yyc:t-layexport) ("Qa" . yyc:t-qa) ("Final" . yyc:t-final)))
 (setq *yyc-readonly* '(yyc:t-find0 yyc:t-layexport yyc:t-qa))
@@ -3460,5 +3329,5 @@
 )
 (yyc:try 'yyc:ensure-support nil)
 
-(princ (strcat "\nYYC CAD Tools v" *yyc-version* " (ActiveX) loaded. Type YYCHELP for every command in order. Profile: " (yyc:profile) ". Commands: YYCHELP YYCPROFILES YYCRENAME YYCTITLEBLOCK YYCPAGESETUP YYCSCHEDULES YYCGRIDIN YYCALIGNREC YYCALIGNAPPLY YYCVPUCS YYCGRIDOUT YYCCLEAN YYCFIND0 YYCVPLAYERS YYCVPLOCK YYCLWDEFAULT YYCLAYXL YYCLAYMAP YYCLAYWALK YYCLAYSYNC YYCMAKEREF YYCLAYEXPORT YYCZERO YYCPARK YYCUNPARK YYCQA YYCFINAL YYCFILELIST YYCFILEDESC YYCTRANSMIT YYCBATCH"))
+(princ (strcat "\nYYC CAD Tools v" *yyc-version* " (ActiveX) loaded. Type YYCHELP for every command in order. Profile: " (yyc:profile) ". Commands: YYCHELP YYCPROFILES YYCRENAME YYCPAGESETUP YYCSCHEDULES YYCGRIDIN YYCALIGNREC YYCALIGNAPPLY YYCVPUCS YYCGRIDOUT YYCCLEAN YYCFIND0 YYCVPLAYERS YYCVPLOCK YYCLWDEFAULT YYCLAYXL YYCLAYMAP YYCLAYWALK YYCLAYSYNC YYCMAKEREF YYCLAYEXPORT YYCZERO YYCPARK YYCUNPARK YYCQA YYCFINAL YYCFILELIST YYCFILEDESC YYCTRANSMIT YYCBATCH"))
 (princ)
