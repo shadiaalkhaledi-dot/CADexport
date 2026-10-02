@@ -208,7 +208,6 @@
 <span class="lb">Run this</span>
 <p><span class="cmd">YYCRENAME</span> renames a whole export folder in one go. Run it from a <b>blank drawing</b>: AutoCAD can't rename a file that's open.</p>
 </div>
-    <div class="tools" data-step="s2"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><pre><span class="c">-- YYC drawing number for this project: 24C024</span>
 A102        <span class="k">--&gt;</span>  24C024A102.dwg
 A-201       <span class="k">--&gt;</span>  24C024A201.dwg
@@ -231,7 +230,6 @@ M-201.01    <span class="k">--&gt;</span>  24C024M20101.dwg  <span class="c">mec
 <span class="lb">Run this</span>
 <p><span class="cmd">YYCPAGESETUP</span> applies the page setup and moves the sheet onto 0,0. <b>If the sheet looks unchanged afterwards, type <code>RE</code></b> (REGEN) and the A0 size shows. </p>
 </div>
-    <div class="tools" data-step="s3"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><div class="box tip">
 <span class="lb">Shadi's note</span>
 <p>You only need to import it once — after that it's saved on your machine and available in every drawing. If you can't find it in the list, you haven't imported it yet on this workstation. It isn't project-based.</p>
@@ -248,7 +246,6 @@ M-201.01    <span class="k">--&gt;</span>  24C024M20101.dwg  <span class="c">mec
 <span class="lb">Run this</span>
 <p><span class="cmd">YYCSCHEDULES</span> does this for you. Click each schedule viewport's frame: what it shows moves to paper space at the same size and spot, then it offers to delete the empty viewport. Keep <span class="cmd">CHSPACE</span> for anything left over.</p>
 </div>
-    <div class="tools" data-step="s4"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><pre><span class="c">-- from inside the layout, with the viewport active</span>
 Command: <span class="k">CHSPACE</span>        <span class="c">alias: CHSP</span>
 Select objects:          <span class="c">pick the schedules / sheet annotation</span>
@@ -269,7 +266,6 @@ Select objects:          <span class="c">pick the schedules / sheet annotation</
 <span class="lb">Run this</span>
 <p><span class="cmd">YYCGRIDIN</span> brings in the right grid for your profile (04 DTB or 20 ITB) at 0,0,0 as one block. On the <b>first sheet</b> of a terminal, <span class="cmd">YYCALIGNREC</span> does the ALIGN with the same four clicks, never scales, and remembers the move. On <b>every other sheet</b>, <span class="cmd">YYCALIGNAPPLY</span> repeats it with no clicks. Both also turn the drawing viewport (step 7). Don't MOVE by hand first: the recording only knows its own clicks.</p>
 </div>
-    <div class="tools" data-step="s5"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><h3>Bring the grid in</h3><pre>Open <span class="k">YYC Grid - 04 DTB Domestic.dwg</span>
 Command: <span class="k">COPYBASE</span>      <span class="c">or Ctrl+Shift+C</span>
 Base point: <span class="k">0,0,0</span>       <span class="c">type it, don't pick it</span>
@@ -304,7 +300,6 @@ Scale objects to alignment points? [Yes/No] &lt;N&gt;: <span class="k">N</span><
 <span class="lb">Run this</span>
 <p><span class="cmd">YYCGRIDOUT</span> deletes the grid block and its definition. <span class="cmd">YYCCLEAN</span> deletes empty text, purges three times and audits. <span class="cmd">YYCFIND0</span> lists any <code>$0$</code> names left from binding.</p>
 </div>
-    <div class="tools" data-step="s6"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><pre>Delete the pasted grid block   <span class="c">one click, because you pasted it as a block</span>
 Command: <span class="k">PURGE</span>            <span class="c">tick "Purge nested items", run it twice</span>
 Command: <span class="k">AUDIT</span>            <span class="c">Fix any errors detected? Y</span></pre><div class="box tip">
@@ -321,7 +316,6 @@ Command: <span class="k">AUDIT</span>            <span class="c">Fix any errors 
 <span class="lb">Run this</span>
 <p>The rotation is now done in step 5. <span class="cmd">YYCALIGNREC</span> and <span class="cmd">YYCALIGNAPPLY</span> turn the drawing viewport by exactly the angle of the move and give it a matching <b>YYC Project North</b> UCS, the same result as UCS OB + PLAN: the sheet reads as exported, project north up, model at true coordinates, and crosshairs and ortho follow the sheet. What's left here is <span class="cmd">YYCVPLAYERS</span>, a scale check, and <span class="cmd">YYCVPLOCK</span>, which offers to snap a drifted scale back. <b>Note:</b> if there are more <code>VIEWPORT#</code> layers than viewports (for example, after <span class="cmd">YYCSCHEDULES</span> deleted some), run <span class="cmd">YYCVPLAYERS</span> again, then <span class="cmd">YYCCLEAN</span> to purge the empty ones.</p>
 </div>
-    <div class="tools" data-step="s7"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><ol>
 <li>Unlock the viewport.</li>
 <li>Pan the view to the right part of the building.</li>
@@ -363,7 +357,6 @@ Command: <span class="k">PLAN</span>
 <p><b>1.</b> <span class="cmd">YYCLWDEFAULT</span>.  <b>2.</b> <span class="cmd">YYCLAYXL</span>: AutoCAD writes every layer into the <b>Map</b> sheet of <code>YYC Layer Mapper.xlsx</code> and opens it.  <b>3.</b> Work down the red <b>CHOOSE</b> rows and pick a YYC layer from the dropdown in the yellow <b>YOUR CHOICE</b> column. Leave it blank if you're not sure; <span class="cmd">YYCLAYWALK</span> shows it to you later. To <b>merge</b>, pick a layer that's already in the drawing; the Action column shows <i>Merge into …</i>. Save.  <b>4.</b> <span class="cmd">YYCLAYMAP</span> applies it all and remembers it.  <b>5.</b> <span class="cmd">YYCLAYWALK</span> for whatever you left blank: <b>Show it</b> isolates the layer, pick its YYC layer, <b>Map</b>.  <b>6.</b> <span class="cmd">YYCLAYSYNC</span> sets colour, linetype and lineweight to the standard.</p>
 <p>On the next drawing, everything you've mapped before comes back as <b>REMEMBERED</b> (blue). Revit numbers like <code>A-WALL-3</code> go automatically. The dropdown holds all 691 layers from the YYC CADD Manual v6.2, including <code>*-ANNO-*</code> for every discipline.</p>
 </div>
-    <div class="tools" data-step="s8"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><h3>8a · Layer Translator — <span class="cmd">LAYTRANS</span></h3><p>The Layer Translator remaps layer names <em>and</em> layer properties in one pass, then converts everything sitting on them. <b>Manage</b> tab → <b>CAD Standards</b> panel → <b>Layer Translator</b>, or just type <span class="cmd">LAYTRANS</span>.</p><table>
 <thead><tr><th>Control</th><th>What it does</th></tr></thead>
 <tbody>
@@ -417,7 +410,7 @@ Command: <span class="k">PLAN</span>
 <p class="cap">Straight from CADD Manual §5.15. This is what they check on receipt — walk it on every sheet.</p><div class="box run">
 <span class="lb">Run this</span>
 <p><span class="cmd">YYCCLEAN</span> → <span class="cmd">YYCFINAL</span> (locks viewports, main layout active, zoom extents) → <span class="cmd">YYCQA</span>. QA changes nothing. Pick <b>This drawing</b> or <b>Folder</b> (every DWG, opened read-only). It writes <code>YYC QA Report &lt;date&gt;.xlsx</code> next to the drawings: <b>Summary</b> shows each drawing with OK / FIX per check, <b>Details</b> says what was found and how to fix it, <b>Checks</b> explains each one. Repeat until every row is PASS. AUDIT, real linetypes and real circles are still checked by eye.</p>
-</div><div class="tools" data-step="s9"></div>
+</div>
 <ul>
 <li><b>Purged</b> of all unused definitions — layers, text styles, dimension styles, layer filters, blocks. Blank layers are not permitted in a delivery.</li>
 <li><b>No empty definitions</b> — no empty text objects, no blocks without geometry.</li>
@@ -445,7 +438,6 @@ Command: <span class="k">PLAN</span>
 <span class="lb">Run this</span>
 <p><span class="cmd">YYCFILELIST</span> on the delivery folder writes <code>filelist.txt</code>, flags any badly named file, and writes <code>FileDescription_list.txt</code>: every drawing with its sheet title, grouped by discipline, ready to paste under the header block. Then <span class="cmd">YYCFILEDESC</span> combines everyone's lists (their .txt / .docx, or a folder of their DWGs) into the final File Description, Word and PDF, using your last one as the template. You still have to collect the consultants' lists.</p>
 </div>
-    <div class="tools" data-step="s10"></div>
     <details class="manual"><summary>Manual method — the example behind the tool, and the fallback if a tool fails</summary><h3>First, collect the lists from every consultant</h3><p>You can't write the File Description from your own folder. Go to each consultant — electrical, mechanical, structural — and get their <b>drawing list and exact file names</b>. Names must match the DWGs they actually send, character for character, because the File Description is the index YYC files the package against.</p><div class="box tip">
 <span class="lb">Shadi's note</span>
 <p>Ask for this early, not at the end. Chasing four consultants for filenames while a submission deadline runs down is the worst part of this whole process, and it's entirely avoidable. Request the list as soon as the issue date is set.</p>
